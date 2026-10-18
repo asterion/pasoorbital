@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-10-18
+
+### Añadido
+
+- **Detalle modal** con `Adw.Dialog` y pestañas **Resumen**, **Radio** y **Cielo**.
+- El **Resumen** es la pestaña principal: estado del paso, explicación en lenguaje
+  llano y ocho datos clave.
+- **Radio:** selector de frecuencia si hay varios canales, Doppler calculado
+  sobre el canal elegido y comando de escucha correspondiente.
+- **Cielo:** gráfico polar y nuevo **gráfico de elevación** durante el paso.
+- Acciones fijas **Guardar .ics** y **Cerrar**; sin scroll en la ventana.
+
+### Cambiado
+
+- El detalle deja de ser un `Adw.Window` con `ScrolledWindow` y pasa a un modal
+  real de libadwaita.
+
 ## [1.4.0] - 2026-10-18
 
 ### Añadido

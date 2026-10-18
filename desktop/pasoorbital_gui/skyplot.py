@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 
 import gi
 
@@ -114,3 +115,102 @@ class SkyPlot(Gtk.DrawingArea):
             cr.move_to(cx + dx - ext.width / 2 - ext.x_bearing, cy + dy)
             _rgb(cr, TEXT)
             cr.show_text(text)
+
+
+class ElevationPlot(Gtk.DrawingArea):
+    """Gráfico de elevación sobre el horizonte durante el paso."""
+
+    def __init__(self, points: list[tuple[float, float, float, float, float]], item: PassItem):
+        super().__init__()
+        self.points = points
+        self.item = item
+        self.set_content_width(430)
+        self.set_content_height(320)
+        self.set_hexpand(False)
+        self.set_halign(Gtk.Align.CENTER)
+        self.set_draw_func(self._draw)
+
+    def _draw(self, _area, cr, width: int, height: int):
+        if width <= 0 or height <= 0:
+            return
+        _rgb(cr, BG)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+
+        left, right, top, bottom = 46, 18, 32, 42
+        pw = width - left - right
+        ph = height - top - bottom
+        if pw <= 0 or ph <= 0:
+            return
+
+        cr.select_font_face("Sans")
+        cr.set_font_size(11)
+        cr.set_line_width(1.0)
+
+        # rejilla horizontal
+        for el in (0, 30, 60, 90):
+            y = top + ph * (1.0 - el / 90.0)
+            cr.move_to(left, y)
+            cr.line_to(left + pw, y)
+            _rgb(cr, GRID)
+            cr.stroke()
+            label = f"{el}°"
+            ext = cr.text_extents(label)
+            cr.move_to(left - 10 - ext.width, y + 4)
+            _rgb(cr, TEXT)
+            cr.show_text(label)
+
+        # curva y relleno
+        pts = []
+        for t, _az, el, _rng, _rate in self.points:
+            if el is None or el < 0:
+                continue
+            x = left + pw * (t - self.item.aos) / max(1.0, self.item.los - self.item.aos)
+            y = top + ph * (1.0 - min(90.0, max(0.0, el)) / 90.0)
+            pts.append((x, y))
+        if len(pts) >= 2:
+            cr.move_to(pts[0][0], top + ph)
+            for x, y in pts:
+                cr.line_to(x, y)
+            cr.line_to(pts[-1][0], top + ph)
+            cr.close_path()
+            cr.set_source_rgba(*ACCENT, 0.12)
+            cr.fill()
+
+            cr.move_to(*pts[0])
+            for x, y in pts[1:]:
+                cr.line_to(x, y)
+            _rgb(cr, ACCENT)
+            cr.set_line_width(2.4)
+            cr.set_line_cap(1)
+            cr.stroke()
+
+        # marcas AOS / TCA / LOS
+        for t, color, text in (
+            (self.item.aos, ACCENT, "AOS"),
+            (self.item.tca, AMBER, "TCA"),
+            (self.item.los, RED, "LOS"),
+        ):
+            x = left + pw * (t - self.item.aos) / max(1.0, self.item.los - self.item.aos)
+            cr.move_to(x, top)
+            cr.line_to(x, top + ph)
+            cr.set_source_rgba(*color, 0.25)
+            cr.set_line_width(1.0)
+            cr.stroke()
+
+        # horas en el eje X
+        cr.set_font_size(10)
+        for t, align in ((self.item.aos, 0.0), (self.item.tca, 0.5), (self.item.los, 1.0)):
+            stamp = datetime.fromtimestamp(t).strftime("%H:%M")
+            ext = cr.text_extents(stamp)
+            x = left + pw * (t - self.item.aos) / max(1.0, self.item.los - self.item.aos)
+            x = x - ext.width * align
+            cr.move_to(min(left + pw - ext.width, max(left, x)), height - 14)
+            _rgb(cr, TEXT)
+            cr.show_text(stamp)
+
+        # título
+        cr.set_font_size(12)
+        cr.move_to(left, 18)
+        _rgb(cr, TEXT)
+        cr.show_text("Altura sobre el horizonte")
