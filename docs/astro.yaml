@@ -1,0 +1,80 @@
+# ==============================================================================
+# MANUAL DE MARCA Y GUÍA DE ESTILO DE PERSONAJE (AI-READABLE BRAND SPEC)
+# ==============================================================================
+
+brand_identity:
+  character_name: "Astro"
+  character_type: "Mascota Oficial de Software PasoOrbital"
+  species: "Zorro de Darwin (Lycalopex fulvipes) / Payne Ngürü"
+  domain: "Rastreo orbital, efemérides satelitales y astronomía de código abierto"
+  personality_traits:
+    - "Curioso y observador"
+    - "Ágil y preciso"
+    - "Amigable y accesible"
+    - "Tecnológico y enfocado en la comunidad"
+    - "Inteligente"
+
+visual_identity:
+  art_style: "2D Flat Vector Illustration with bold clean outlines and subtle cel-shading"
+  body_proportions: "Chibi/Mascot ratio (Enlarged expressive head, compact body, bushy tail)"
+  face_expression: "Gentle smile, curious bright eyes looking upward towards the sky"
+  outline_style: "Bold dark slate outline (#1E222A), smooth vector curves"
+
+color_palette_web_hex:
+  primary_dark_fur:
+    name: "Slate Blue-Dark / Payne Gray"
+    hex: "#2F3542"
+    usage: "Back, forehead, outer ears, upper body, dark tail section"
+    description: "Represents the 'Payne Ngürü' (blue/slate fox) characteristic"
+  primary_rust_fur:
+    name: "Copper Rust / Tawny"
+    hex: "#C85A17"
+    usage: "Paws, legs, ear rims, muzzle accents, tail tip accent"
+    description: "Represents the 'fulvipes' (fulvous/rust-footed) trait"
+  accent_light_fur:
+    name: "Off-White / Cream"
+    hex: "#F5F6FA"
+    usage: "Chest, throat, jawline, inner ear fluff"
+    description: "Provides high contrast for facial visibility"
+  eye_color:
+    name: "Orbit Blue"
+    hex: "#3742FA"
+    usage: "Iris highlights and eye accents"
+    description: "Symbolizes space observation and optics"
+  background_default:
+    name: "Pure White / Transparent"
+    hex: "#FFFFFF"
+    usage: "Isolated asset background"
+
+anatomy_and_structure:
+  head:
+    ears: "Large, pointed, upright with copper (#C85A17) back borders and white inner fluff"
+    snout: "Short, slightly upturned, white lower jaw and chest area"
+    nose: "Small dark charcoal button nose (#1E222A)"
+    eyes: "Large, expressive, blue-tinted (#3742FA) with glossy white catchlights"
+  body:
+    pose: "Seated or attentive posture, looking 45 degrees upward"
+    front_paws: "Slightly elongated, colored in copper rust (#C85A17)"
+    chest: "Broad white/cream fluff patch extending from chin down to belly"
+  tail:
+    shape: "Thick, curved upward, fluffy"
+    pattern: "Dark slate base (#2F3542) with a copper/rust (#C85A17) middle accent"
+
+do_and_dont_rules_for_ai:
+  do:
+    - "Keep the dark slate (#2F3542) as the dominant fur color."
+    - "Maintain high contrast between the white chest (#F5F6FA) and dark body."
+    - "Keep clean, vector-style line art with consistent line weight."
+    - "Preserve the 45-degree upward gaze (looking at satellites/orbits)."
+  dont_do:
+    - "Do NOT make the fox fully orange like a Red Fox (Vulpes vulpes)."
+    - "Do NOT add space helmets or suit accessories unless explicitly requested."
+    - "Do NOT use photorealistic fur textures; keep it flat 2D vector graphic."
+    - "Do NOT change the eye color to red, yellow, or green."
+
+system_prompt_template_for_image_generation:
+  english_master_prompt: >
+    A 2D flat vector mascot illustration of an endemic Darwin's Fox named Astro, isolated on a pure white background (#FFFFFF). 
+    The fox has dark slate-gray fur (#2F3542) on its back and head, rust-copper legs and ear borders (#C85A17), and a soft off-white chest and throat (#F5F6FA). 
+    Bright expressive blue eyes (#3742FA) looking slightly upward with a friendly smile. 
+    Clean bold outlines, modern open-source software logo mascot style, minimal shading, high resolution vector aesthetic.
