@@ -46,8 +46,9 @@ de satélites. Es la mascota oficial de PasoOrbital. La especificación de marca
 está en [docs/astro.yaml](docs/astro.yaml); hay versiones en
 [512 px](docs/astro-512.png) y [avatar](docs/astro-avatar.png).
 
-Diseño vectorial: DeepSeek Harness (deepseek-flash), a partir de la
-especificación de Marcos Matamala Fernandez.
+Ilustración final a partir de la referencia visual aportada por Marcos
+Matamala Fernandez. La versión vectorial simplificada y editable está en
+[astro-vector.svg](docs/astro-vector.svg).
 
 ## Instalación
 
