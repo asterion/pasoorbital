@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.7.0] - 2026-10-18
+
+### Añadido
+
+- **Astro** en la cabecera de la ventana y en el estado vacío.
+- Crédito de Astro en el diálogo **Acerca de**.
+
+### Cambiado
+
+- Comando LRPT para **SatDump 1.2.2**, con ganancia inicial de 30 dB.
+
 ## [1.6.0] - 2026-10-18
 
 ### Añadido

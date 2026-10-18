@@ -2,7 +2,7 @@
 
 > **Para retomar el proyecto sin perder contexto.**
 > Autores: Marcos Matamala Fernandez y DeepSeek Harness (deepseek-flash).
-> Última actualización: 18 de octubre de 2026 · Versión: 1.6 (pantalla principal)
+> Última actualización: 18 de octubre de 2026 · Versión: 1.7 (Astro y SatDump 1.2.2)
 
 ---
 
@@ -47,6 +47,7 @@ Aplicación local (servidor Python + interfaz web) que calcula **qué satélites
 - [x] Aviso de escritorio 5 minutos antes y resaltado de pasos próximos o en curso.
 - [x] Detalle modal con pestañas Resumen, Radio y Cielo, sin scroll, y gráfico de elevación.
 - [x] Tarjeta de próximo paso, campana de avisos siempre visible y notificación que abre el detalle.
+- [x] Astro en cabecera y estado vacío; comandos LRPT ajustados a SatDump 1.2.2.
 
 ---
 
@@ -410,6 +411,7 @@ pasoorbital.example.com {
 | Oct 2026 | Corregido el comando de escucha LRPT de SatDump: el primer argumento es el pipeline (`meteor_m2-x_lrpt`), el segundo la carpeta de salida. |
 | Oct 2026 | Tabla: fechas relativas («hoy», «mañana», «Lunes 19 oct»), duración sin segundos y direcciones con nombre completo («Sur → Noreste»). |
 | Oct 2026 | Tabla simplificada: AOS pasa a «Aparece», se elimina la columna LOS (basta con Aparece + Duración) y el detalle usa «Punto más alto», «Termina» y «Dirección». |
+| Oct 2026 | Versión 1.7: Astro en la interfaz y comandos LRPT para SatDump 1.2.2. |
 | Oct 2026 | Versión 1.6: próximo paso destacado, campana de avisos y notificación que abre el detalle. |
 | Oct 2026 | Versión 1.5.1: corregidos los iconos rotos de las pestañas del detalle. |
 | Oct 2026 | Versión 1.5: detalle modal con pestañas Resumen, Radio y Cielo; sin scroll y con gráfico de elevación. |
@@ -462,7 +464,7 @@ PasoOrbital sin navegador ni servidor HTTP.
 | `desktop/pasoorbital_gui/format.py` | Fechas relativas, duración, resumen, comandos e ICS. |
 | `desktop/pasoorbital_gui/skyplot.py` | Gráfico polar con Cairo. |
 | `desktop/pasoorbital_gui/style.css` | Estilos sobre libadwaita. |
-| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.6.0-1_all.deb`. |
+| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.7.0-1_all.deb`. |
 | `desktop/pasoorbital.desktop`, icono, metainfo y manpage | Integración con GNOME. |
 
 - **Dependencias del paquete:** `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`,

@@ -5,7 +5,7 @@ umask 022
 cd "$(dirname "$0")"
 
 PKG=pasoorbital
-VERSION=1.6.0
+VERSION=1.7.0
 ARCH=all
 STAGE="$PWD/build/${PKG}_${VERSION}-1_${ARCH}"
 DIST="$PWD/dist"
@@ -22,6 +22,8 @@ mkdir -p "$DIST"
 # Motor PasoOrbital y aplicación GTK
 cp ../pasoorbital/*.py "$DEST/pasoorbital/"
 cp pasoorbital_gui/*.py pasoorbital_gui/style.css "$DEST/pasoorbital_gui/"
+mkdir -p "$DEST/pasoorbital_gui/assets"
+cp pasoorbital_gui/assets/* "$DEST/pasoorbital_gui/assets/"
 
 # Lanzador
 cat > "$STAGE/usr/bin/pasoorbital-gui" <<'PYEOF'
@@ -52,7 +54,7 @@ install -m 644 ../LICENSE "$STAGE/usr/share/doc/pasoorbital/copyright"
 install -m 644 ../AUTHORS.md "$STAGE/usr/share/doc/pasoorbital/AUTHORS.md"
 install -m 644 README.md "$STAGE/usr/share/doc/pasoorbital/README.desktop.md"
 gzip -9n -c > "$STAGE/usr/share/doc/pasoorbital/changelog.Debian.gz" <<'CHANGELOG'
-pasoorbital (1.6.0-1) unstable; urgency=medium
+pasoorbital (1.7.0-1) unstable; urgency=medium
 
   * Primera versión de escritorio para GNOME (GTK4 + libadwaita).
 
@@ -67,7 +69,7 @@ Version: ${VERSION}-1
 Architecture: $ARCH
 Maintainer: Marcos Matamala Fernandez <asterion@users.noreply.github.com>
 Installed-Size: $INSTALLED_SIZE
-Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.10), gir1.2-adw-1 (>= 1.6), python3-numpy, python3-sgp4 (>= 2.22)
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.10), gir1.2-gdkpixbuf-2.0, gir1.2-adw-1 (>= 1.6), python3-numpy, python3-sgp4 (>= 2.22)
 Section: science
 Priority: optional
 Homepage: https://github.com/asterion/pasoorbital

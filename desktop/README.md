@@ -6,14 +6,16 @@ Aplicación de escritorio en **GTK4 + libadwaita** que reutiliza el motor de
 PasoOrbital (`sgp4`, TLE de CelesTrak, frecuencias y geocodificación) sin depender
 del navegador. Resalta los pasos que aparecen en los próximos 5 minutos, avisa
 con una notificación del escritorio que abre el detalle del paso. La pantalla
-principal destaca el próximo paso y el detalle usa pestañas **Resumen**, **Radio**
-y **Cielo**, sin scroll.
+principal destaca el próximo paso, muestra a **Astro** en la cabecera y el
+detalle usa pestañas **Resumen**, **Radio** y **Cielo**, sin scroll. Los comandos
+LRPT están ajustados a SatDump 1.2.2.
 
 ## Requisitos
 
 - Ubuntu 24.10 o superior / Debian 13 o superior (libadwaita 1.6+).
-- `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`, `python3-numpy`,
-  `python3-sgp4` (este último está en el repositorio `universe` de Ubuntu).
+- `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-gdkpixbuf-2.0`, `gir1.2-adw-1`,
+  `python3-numpy`, `python3-sgp4` (este último está en el repositorio `universe`
+  de Ubuntu).
 - Para construir el `.deb`: `dpkg-deb` (paquete `dpkg-dev`).
 
 ## Construir el paquete
@@ -23,12 +25,12 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.6.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.7.0-1_all.deb`.
 
 ## Instalar
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.6.0-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.7.0-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -39,8 +41,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.6.0-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.6.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.6.0-1_all.deb
+> cp dist/pasoorbital_1.7.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.7.0-1_all.deb
 > ```
 
 

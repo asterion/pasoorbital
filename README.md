@@ -30,6 +30,8 @@ TLE para poder predecir sin conexión.
   resumen como pestaña principal.
 - **Próximo paso** destacado en la pantalla principal, con cuenta atrás y acceso
   directo al detalle; campana de avisos siempre visible en la cabecera.
+- **Astro**, la mascota, aparece en la cabecera y en el estado vacío.
+- Comandos LRPT ajustados a **SatDump 1.2.2** (gain 30).
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
   (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
@@ -48,9 +50,12 @@ TLE para poder predecir sin conexión.
 <p align="center"><img src="docs/astro.png" alt="Astro, zorro de Darwin y mascota de PasoOrbital" width="220"></p>
 
 **Astro** es un zorro de Darwin (*Lycalopex fulvipes*) que mira al cielo en busca
-de satélites. Es la mascota oficial de PasoOrbital. La especificación de marca
-está en [docs/astro.yaml](docs/astro.yaml); hay versiones en
+de satélites. Es la mascota oficial de PasoOrbital y aparece en la cabecera y en el estado
+vacío de la app. La especificación de marca está en
+[docs/astro.yaml](docs/astro.yaml); hay versiones en
 [512 px](docs/astro-512.png) y [avatar](docs/astro-avatar.png).
+
+<p align="center"><img src="docs/desktop-astro.png" alt="Astro en el estado vacío de PasoOrbital" width="520"></p>
 
 Ilustración final a partir de la referencia visual aportada por Marcos
 Matamala Fernandez. La versión vectorial simplificada y editable está en
@@ -99,7 +104,7 @@ navegador, empaquetada como `.deb`.
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.6.0-1_all.deb
+sudo apt install ./dist/pasoorbital_1.7.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -111,8 +116,8 @@ pasoorbital-gui
 > desde allí:
 >
 > ```bash
-> cp desktop/dist/pasoorbital_1.6.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.6.0-1_all.deb
+> cp desktop/dist/pasoorbital_1.7.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.7.0-1_all.deb
 > ```
 
 Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` (1.6 o superior),

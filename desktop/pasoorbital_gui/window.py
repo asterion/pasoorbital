@@ -12,7 +12,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk  # noqa: E402
 
 from . import __version__, format as fmt  # noqa: E402
 from .data import PassItem, PasoOrbitalData  # noqa: E402
@@ -26,6 +26,9 @@ GROUPS = [
     ("amateur", "Radioaficionados"),
     ("cubesat", "CubeSats"),
 ]
+
+ASSETS_DIR = Path(__file__).with_name("assets")
+ASTRO_FILE = ASSETS_DIR / "astro.png"
 
 
 class PasoOrbitalWindow(Adw.ApplicationWindow):
@@ -64,9 +67,21 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     def _build_ui(self) -> None:
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
-        header.set_title_widget(
+        brand = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        if ASTRO_FILE.exists():
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                str(ASTRO_FILE), 34, 34, True
+            )
+            astro = Gtk.Picture.new_for_pixbuf(pixbuf)
+            astro.set_can_shrink(False)
+            astro.set_size_request(34, 34)
+            astro.set_valign(Gtk.Align.CENTER)
+            astro.set_tooltip_text("Astro, mascota de PasoOrbital")
+            brand.append(astro)
+        brand.append(
             Adw.WindowTitle(title="PasoOrbital", subtitle="Pasos de satélites para escucha")
         )
+        header.set_title_widget(brand)
         self.refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic")
         self.refresh_btn.set_tooltip_text("Actualizar TLE")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh_tle())
@@ -317,6 +332,14 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         self.empty_page = Adw.StatusPage()
         self.empty_page.set_icon_name("applications-science-symbolic")
+        if ASTRO_FILE.exists():
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    str(ASTRO_FILE), 256, 256, True
+                )
+                self.empty_page.set_paintable(Gdk.Texture.new_for_pixbuf(pixbuf))
+            except GLib.Error:
+                pass
         self.empty_page.set_title("Sin pasos todavía")
         self.empty_page.set_description("Configura tu ubicación y pulsa «Calcular pasos».")
         self.stack.add_named(self.empty_page, "empty")
@@ -1205,6 +1228,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
                 "DeepSeek Harness (deepseek-flash)",
             ],
             documenters=["DeepSeek Harness (deepseek-flash)"],
+            artists=["Astro, mascota de PasoOrbital"],
             copyright="© 2026 Marcos Matamala Fernandez",
             version=__version__,
             license_type=Gtk.License.MIT_X11,
