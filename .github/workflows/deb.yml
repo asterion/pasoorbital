@@ -47,8 +47,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            desktop/dist/*.deb
-            desktop/dist/*.rpm
+            desktop/dist/pasoorbital_*.deb
+            desktop/dist/pasoorbital-*.rpm
             desktop/dist/SHA256SUMS
             desktop/dist/SHA256SUMS.rpm
           generate_release_notes: true
