@@ -84,6 +84,18 @@ sudo apt install ./dist/pasoorbital_1.3.0-1_all.deb
 pasoorbital-gui
 ```
 
+> **Aviso de apt al instalar un `.deb` local:** si aparece
+> «La descarga se realiza sin aislamiento como root…», es porque el archivo
+> está dentro de una carpeta privada (por ejemplo, `/home/tu-usuario` con
+> permisos 750) y el usuario `_apt` no puede leerlo. No es un error: el paquete
+> se instala igualmente. Para evitarlo, copia el `.deb` a `/tmp` e instálalo
+> desde allí:
+>
+> ```bash
+> cp desktop/dist/pasoorbital_1.3.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.3.0-1_all.deb
+> ```
+
 Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` (1.6 o superior),
 `python3-numpy` y `python3-sgp4` (en Ubuntu, este último está en `universe`).
 La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
