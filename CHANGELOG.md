@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.4.0] - 2026-10-18
+
+### Añadido
+
+- **Aviso de escritorio 5 minutos antes** de cada paso, mediante
+  `Gio.Notification`.
+- **Resaltado de la fila** del paso que aparece en los próximos 5 minutos o que
+  ya está en curso.
+- Interruptor **«Avisar 5 min antes»** en el panel de predicción, con la
+  preferencia guardada.
+- Acción `app.present`: al pulsar la notificación se trae la ventana al frente.
+
+### Notas
+
+- Esta versión es solo para la app de escritorio; la web queda para una fase
+  posterior.
+
 ## [1.3.0] - 2026-10-17
 
 ### Añadido

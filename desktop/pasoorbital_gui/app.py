@@ -28,6 +28,7 @@ class PasoOrbitalApplication(Adw.Application):
         actions = {
             "about": self._on_about,
             "refresh": self._on_refresh,
+            "present": self._on_present,
             "quit": self._on_quit,
         }
         for name, callback in actions.items():
@@ -45,6 +46,11 @@ class PasoOrbitalApplication(Adw.Application):
     def _on_refresh(self, *_args) -> None:
         if self.window is not None:
             self.window.refresh_tle()
+
+    def _on_present(self, *_args) -> None:
+        if self.window is not None:
+            self.window.present()
+            self.window.set_visible(True)
 
     def _on_quit(self, *_args) -> None:
         self.quit()

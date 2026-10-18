@@ -10,6 +10,7 @@
     <p>Incluye un resumen en lenguaje llano de cada paso, gráficos de la trayectoria en el cielo y comandos listos para copiar para RTL-SDR, SatDump o noaa-apt.</p>
     <ul>
       <li>Altitud del terreno automática con Open-Meteo.</li>
+      <li>Avisos de escritorio 5 minutos antes y resaltado del paso.</li>
       <li>Predicción de 1, 2, 3 o 7 días.</li>
       <li>Frecuencias de satélites meteorológicos, ISS y radioaficionados.</li>
       <li>Guía y glosario integrados para quien empieza.</li>
@@ -30,6 +31,11 @@
   <url type="homepage">https://github.com/asterion/pasoorbital</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.4.0" date="2026-10-18">
+      <description>
+        <p>Avisos de escritorio 5 minutos antes y resaltado del paso próximo o en curso.</p>
+      </description>
+    </release>
     <release version="1.3.0" date="2026-10-17">
       <description>
         <p>Altitud del terreno automática al buscar una dirección, con Open-Meteo.</p>

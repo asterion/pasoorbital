@@ -37,3 +37,20 @@
   border-radius: 10px;
   padding: 10px 12px;
 }
+
+
+@keyframes pass-pulse {
+  0% { background-color: alpha(@accent_bg_color, 0.08); }
+  50% { background-color: alpha(@accent_bg_color, 0.22); }
+  100% { background-color: alpha(@accent_bg_color, 0.08); }
+}
+
+.pass-row.soon {
+  animation: pass-pulse 1.8s ease-in-out infinite;
+  box-shadow: inset 4px 0 0 0 @accent_color;
+}
+
+.pass-row.live {
+  background-color: alpha(@accent_bg_color, 0.14);
+  box-shadow: inset 4px 0 0 0 @accent_color;
+}

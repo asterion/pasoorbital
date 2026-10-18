@@ -24,6 +24,8 @@ TLE para poder predecir sin conexión.
 - **Ubicación** por dirección (Nominatim), por coordenadas o con el GPS del navegador.
 - **Altitud del terreno automática** al buscar una dirección o usar el GPS, con
   Open-Meteo (DEM Copernicus); el edificio se ajusta a mano.
+- **Avisos de escritorio** 5 minutos antes de un paso y resaltado de la fila
+  próxima o en curso (app GNOME).
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
   (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
@@ -93,7 +95,7 @@ navegador, empaquetada como `.deb`.
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.3.0-1_all.deb
+sudo apt install ./dist/pasoorbital_1.4.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -105,14 +107,16 @@ pasoorbital-gui
 > desde allí:
 >
 > ```bash
-> cp desktop/dist/pasoorbital_1.3.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.3.0-1_all.deb
+> cp desktop/dist/pasoorbital_1.4.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.4.0-1_all.deb
 > ```
 
 Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` (1.6 o superior),
 `python3-numpy` y `python3-sgp4` (en Ubuntu, este último está en `universe`).
 La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
-`~/.cache/pasoorbital/`.
+`~/.cache/pasoorbital/`. La app resalta los pasos que aparecen en los próximos
+5 minutos y, con «Avisar 5 min antes» activo, envía una notificación del
+escritorio.
 
 [Detalle de un paso en la app de escritorio](docs/desktop-detalle.png).
 

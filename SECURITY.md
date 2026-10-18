@@ -2,7 +2,7 @@
 
 ## Versiones soportadas
 
-La rama principal y la última versión publicada (1.3.x) reciben correcciones
+La rama principal y la última versión publicada (1.4.x) reciben correcciones
 de seguridad.
 
 ## Cómo reportar
