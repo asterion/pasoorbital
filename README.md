@@ -4,80 +4,136 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 
-**English:** PasoOrbital predicts satellite passes for radio listening: AOS,
-elevation, azimuth, duration, frequency and Doppler, with a local web UI, a
-GTK4/libadwaita desktop app and a CLI. Free software under the MIT license.
+**PasoOrbital está formado por dos aplicaciones independientes sobre un mismo motor:**
 
-Herramienta local que calcula **qué satélites pasan por tu ubicación**, con fecha,
-hora, elevación, azimut, duración y **desplazamiento Doppler**, pensada para
-sintonizar y escuchar satélites con un SDR o un receptor de radio.
+- **PasoOrbital Desktop**: app nativa para GNOME (GTK4 + libadwaita), pensada para
+  el uso diario; se instala como `.deb` o `.rpm`.
+- **PasoOrbital Web**: app web que corre **solo en tu computador**, en
+  `127.0.0.1`; se abre en el navegador y no necesita instalar una app nativa.
 
-No depende de servicios de pago ni de cuentas: usa los TLE públicos de
-[CelesTrak](https://celestrak.org/), el modelo orbital SGP4 y la geocodificación
-de OpenStreetMap. Funciona en el navegador, en local, y guarda una copia de los
-TLE para poder predecir sin conexión.
+Las dos comparten el mismo cálculo orbital, catálogo, frecuencias, Doppler y CLI.
+**No dependen una de la otra** y puedes tener ambas instaladas o ejecutándose a la vez.
 
-![Interfaz de PasoOrbital](docs/captura.png)
+**English:** PasoOrbital predicts satellite passes for radio listening. It ships
+two independent frontends — a GTK4 desktop app and a local web app — on top of
+the same SGP4 engine. Free software under the MIT license.
 
-## Qué incluye
+[Ir a la app de escritorio](#app-de-escritorio-gnome) ·
+[Ir a la web local](#web-local) ·
+[Qué comparten](#qué-comparten)
 
-- **Ubicación** por dirección (Nominatim), por coordenadas o con el GPS del navegador.
-- **Altitud del terreno automática** al buscar una dirección o usar el GPS, con
-  Open-Meteo (DEM Copernicus); el edificio se ajusta a mano.
-- **Avisos de escritorio** 5 minutos antes de un paso y resaltado de la fila
-  próxima o en curso (app GNOME).
-- **Detalle modal con pestañas** Resumen, Radio y Cielo, sin scroll, con el
-  resumen como pestaña principal.
-- **Próximo paso** destacado en la pantalla principal, con cuenta atrás y acceso
-  directo al detalle; campana de avisos siempre visible en la cabecera.
-- **Astro**, la mascota, aparece en la cabecera y en el estado vacío.
-- Comandos LRPT ajustados a **SatDump 1.2.2** (gain 30).
-- **Cielo en vivo**: marcador del satélite, estela recorrida, línea «ahora» y progreso del paso.
-- **Paquete RPM** instalable con `rpm -ivh` para Fedora, además del `.deb`.
-- **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
-- **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
-  (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
-- **Frecuencias de escucha** por satélite (bajada, subida, tono y modo) y
-  **Doppler calculado** en AOS, TCA y LOS.
-- **Gráficos** de la trayectoria aparente en el cielo (polar) y de elevación/Doppler
-  durante el paso.
-- **Comandos de escucha** listos para copiar (`rtl_fm` + `sox`, `noaa-apt`, `SatDump`).
-- **Ayuda integrada**: guía «Cómo leer esta tabla», glosario emergente (AOS, TCA, LOS,
-  elevación, azimut, Doppler…) y un **resumen en lenguaje llano** de cada paso.
-- **Calendario .ics** para llevar los pasos al móvil.
-- **CLI** para consultar desde la terminal.
+## Dos aplicaciones, un mismo motor
 
-## Mascota
+| | **PasoOrbital Desktop** | **PasoOrbital Web** |
+| --- | --- | --- |
+| Interfaz | Nativa GTK4 + libadwaita | Navegador |
+| Sistema | Linux con GTK4/libadwaita | Windows, macOS o Linux con Python |
+| Se instala | `.deb` o `.rpm` | Python + `./run.sh` |
+| Dónde corre | En el escritorio, sin navegador | Servidor local en `127.0.0.1` |
+| Servidor | No | Sí, local |
+| Internet | Solo para TLE y geocodificación | Solo para TLE y geocodificación |
+| Notificaciones de escritorio | **Sí** | No |
+| Cielo en vivo | **Sí** | No |
+| Astro en la interfaz | **Sí** | No |
+| Ideal para | Uso diario desde el menú | Probar o usar desde otro equipo sin app nativa |
 
-<p align="center"><img src="docs/astro.png" alt="Astro, zorro de Darwin y mascota de PasoOrbital" width="220"></p>
+La **web no es un servicio en la nube**: no hay servidor público, cuentas ni
+telemetría. Se levanta en tu equipo y se usa desde el navegador.
 
-**Astro** es un zorro de Darwin (*Lycalopex fulvipes*) que mira al cielo en busca
-de satélites. Es la mascota oficial de PasoOrbital y aparece en la cabecera y en el estado
-vacío de la app. La especificación de marca está en
-[docs/astro.yaml](docs/astro.yaml); hay versiones en
-[512 px](docs/astro-512.png) y [avatar](docs/astro-avatar.png).
+## App de escritorio (GNOME)
 
-<p align="center"><img src="docs/desktop-astro.png" alt="Astro en el estado vacío de PasoOrbital" width="520"></p>
+![PasoOrbital Desktop](docs/desktop.png)
 
-Ilustración final a partir de la referencia visual aportada por Marcos
-Matamala Fernandez. La versión vectorial simplificada y editable está en
-[astro-vector.svg](docs/astro-vector.svg).
+La app nativa es la opción recomendada para escuchar satélites todos los días.
+Además de la predicción, agrega:
 
-## Instalación
+- **Próximo paso** destacado, con cuenta atrás y acceso directo al detalle.
+- **Aviso de escritorio 5 minutos antes** y resaltado de la fila próxima o en curso.
+- **Detalle modal** con pestañas Resumen, Radio y Cielo.
+- **Cielo en vivo**: marcador del satélite, estela recorrida, línea «ahora» y
+  progreso del paso.
+- **Astro**, la mascota, en la cabecera y en el estado vacío.
+- Comandos LRPT ajustados a **SatDump 1.2.2**.
+- Paquetes **`.deb`** y **`.rpm`**.
 
-Requisitos: Python 3.10 o superior y conexión a internet la primera vez
-(para descargar TLE y dependencias).
+![Cielo en vivo en PasoOrbital Desktop](docs/desktop-en-vivo.png)
 
-**Privacidad:** las direcciones se envían a Nominatim y, al calcular la altitud,
-las coordenadas a Open-Meteo. No hay cuentas, telemetría ni servidor propio.
+[Ver el detalle modal con pestañas](docs/desktop-detalle.png).
+
+### Instalar PasoOrbital Desktop
+
+Descarga el paquete desde la última release:
+
+- [Última release](https://github.com/asterion/pasoorbital/releases/latest)
+- [`.deb` para Debian/Ubuntu](https://github.com/asterion/pasoorbital/releases/download/v1.9.0/pasoorbital_1.9.0-1_all.deb)
+- [`.rpm` para Fedora 41/42](https://github.com/asterion/pasoorbital/releases/download/v1.9.0/pasoorbital-1.9.0-1.noarch.rpm)
 
 ```bash
-cd satelites
+# Debian / Ubuntu
+sudo apt install ./pasoorbital_1.9.0-1_all.deb
+pasoorbital-gui
+
+# Fedora
+sudo rpm -ivh pasoorbital-1.9.0-1.noarch.rpm
+pasoorbital-gui
+```
+
+El RPM se instala con `rpm`, sin repositorio ni `dnf`. Si faltan dependencias de
+Fedora, `rpm` las mostrará antes de instalar.
+
+<details>
+<summary>Aviso al instalar un <code>.deb</code> local</summary>
+
+Si aparece «La descarga se realiza sin aislamiento como root…», es porque el
+archivo está dentro de una carpeta privada (por ejemplo, `/home/tu-usuario` con
+permisos 750) y el usuario `_apt` no puede leerlo. No es un error. Para evitarlo:
+
+```bash
+cp pasoorbital_1.9.0-1_all.deb /tmp/
+sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
+```
+</details>
+
+Dependencias del escritorio: `python3-gi`, `gir1.2-gtk-4.0`,
+`gir1.2-gdkpixbuf-2.0`, `gir1.2-adw-1` (1.6 o superior), `python3-numpy` y
+`python3-sgp4`. En Ubuntu, `python3-sgp4` está en `universe`.
+
+La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
+`~/.cache/pasoorbital/`.
+
+### Construir PasoOrbital Desktop desde el código
+
+```bash
+cd desktop
+./build_deb.sh     # Debian/Ubuntu
+./build_rpm.sh     # Fedora; requiere rpmbuild
+```
+
+Los paquetes quedan en `desktop/dist/`. Más detalles en
+[desktop/README.md](desktop/README.md).
+
+## Web local
+
+![PasoOrbital Web](docs/captura.png)
+
+La web es una aplicación local para el navegador. No hay una versión alojada:
+la ejecutas en tu computador y abres `http://127.0.0.1:8765`.
+
+Incluye predicción de pasos, tabla ordenada, búsqueda, frecuencias, Doppler,
+gráficos, calendario `.ics`, API local y la guía de lectura. La app de escritorio
+es la que agrega notificaciones, detalle modal, cielo en vivo y Astro.
+
+### Ejecutar PasoOrbital Web
+
+Requisitos: Python 3.10 o superior y conexión a internet la primera vez.
+
+```bash
+cd pasoorbital
 ./run.sh
 ```
 
-`run.sh` crea un entorno virtual en `.venv`, instala `sgp4` y `numpy` y arranca
-el servidor en <http://127.0.0.1:8765>.
+`run.sh` crea `.venv`, instala las dependencias y abre
+<http://127.0.0.1:8765>.
 
 Instalación manual:
 
@@ -96,89 +152,71 @@ python app.py --refresh            # fuerza la descarga de TLE al arrancar
 python app.py --no-browser         # no abrir el navegador
 ```
 
-## Versión de escritorio (GNOME)
+La web escucha solo en `127.0.0.1` por defecto. Si usas `--host 0.0.0.0`, queda
+expuesta a tu red local; no la publiques en internet sin proxy, TLS y control de
+acceso. La API está documentada más abajo.
 
-![PasoOrbital para GNOME](docs/desktop.png)
+## Qué comparten
 
-Además de la web, PasoOrbital tiene una aplicación nativa **GTK4 + libadwaita**, sin
-navegador, empaquetada como `.deb` y `.rpm`.
+- **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
+- **Catálogo** de estaciones espaciales, meteorológicos, radioaficionados y
+  CubeSats, desde CelesTrak y con caché de 6 horas.
+- **Frecuencias de escucha** y **Doppler** en AOS, TCA y LOS.
+- **Ubicación** por dirección o coordenadas; la web además usa el GPS del navegador.
+- **Altitud del terreno** con Open-Meteo (DEM Copernicus); el edificio se ajusta
+  a mano.
+- **Calendario `.ics`**, comandos de escucha y **CLI**.
+- La misma base de datos y el mismo motor SGP4.
 
-```bash
-cd desktop
-./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.9.0-1_all.deb
-pasoorbital-gui
-```
+Las direcciones se envían a Nominatim y, al calcular la altitud, las coordenadas
+a Open-Meteo. No hay cuentas, telemetría ni servidor propio.
 
-> **Aviso de apt al instalar un `.deb` local:** si aparece
-> «La descarga se realiza sin aislamiento como root…», es porque el archivo
-> está dentro de una carpeta privada (por ejemplo, `/home/tu-usuario` con
-> permisos 750) y el usuario `_apt` no puede leerlo. No es un error: el paquete
-> se instala igualmente. Para evitarlo, copia el `.deb` a `/tmp` e instálalo
-> desde allí:
->
-> ```bash
-> cp desktop/dist/pasoorbital_1.9.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
-> ```
+## Mascota
 
-Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-gdkpixbuf-2.0`,
-`gir1.2-adw-1` (1.6 o superior), `python3-numpy` y `python3-sgp4` (en Ubuntu,
-este último está en `universe`).
-La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
-`~/.cache/pasoorbital/`. La app resalta los pasos que aparecen en los próximos
-5 minutos y, con «Avisar 5 min antes» activo, envía una notificación del
-escritorio.
+<p align="center"><img src="docs/astro.png" alt="Astro, zorro de Darwin y mascota de PasoOrbital" width="220"></p>
 
-### Fedora / RPM
+**Astro** es un zorro de Darwin (*Lycalopex fulvipes*) que mira al cielo en busca
+de satélites. Es la mascota oficial de PasoOrbital y aparece en la cabecera y en
+el estado vacío de la app de escritorio. La especificación de marca está en
+[docs/astro.yaml](docs/astro.yaml); hay versiones en
+[512 px](docs/astro-512.png) y [avatar](docs/astro-avatar.png).
 
-El RPM es un archivo local: no usa repositorio ni `dnf`. Se instala con `rpm`.
-Está construido para Fedora 41/42 (Python 3.13).
+<p align="center"><img src="docs/desktop-astro.png" alt="Astro en el estado vacío de PasoOrbital Desktop" width="520"></p>
 
-```bash
-sudo rpm -ivh desktop/dist/pasoorbital_1.9.0-1.noarch.rpm
-```
-
-Para actualizar:
-
-```bash
-sudo rpm -Uvh desktop/dist/pasoorbital_1.9.0-1.noarch.rpm
-```
-
-El paquete declara las dependencias de Fedora (`python3-gobject`, `gtk4`,
-`libadwaita`, `gdk-pixbuf2`, `python3-numpy`, `python3-sgp4`). Si faltan, `rpm`
-las mostrará; deben estar instaladas antes. Para construir el RPM en Fedora
-necesitas `rpm-build`:
-
-```bash
-cd desktop
-./build_rpm.sh
-```
-
-El resultado queda en `desktop/dist/`.
-
-[Detalle de un paso en la app de escritorio](docs/desktop-detalle.png).
-
-![Cielo en vivo durante un paso](docs/desktop-en-vivo.png)
+Ilustración final a partir de la referencia visual aportada por Marcos
+Matamala Fernandez. La versión vectorial simplificada y editable está en
+[astro-vector.svg](docs/astro-vector.svg).
 
 ## Uso
 
-1. Escribe una dirección y pulsa **Buscar**, o usa **Usar mi ubicación actual**.
-   También puedes introducir latitud y longitud a mano.
-2. Elige los días, la elevación mínima y los grupos de satélites.
-3. Pulsa **Calcular pasos**. El resultado se ordena por hora de inicio (AOS).
-4. Pulsa una fila para ver el detalle: un resumen en lenguaje llano, horario,
-   frecuencias, Doppler, trayectoria en el cielo y comandos de escucha.
+### En la app de escritorio
 
-La primera vez se abre la guía **«Cómo leer esta tabla»**. Después puedes abrirla
-con el botón del mismo nombre, y el botón **?** de la barra superior (o cualquier
-signo **?** de la tabla) abre el **glosario** con los términos explicados.
+1. Abre **PasoOrbital** desde el menú o ejecuta `pasoorbital-gui`.
+2. Escribe una dirección y pulsa **Buscar**, o introduce latitud y longitud.
+3. Elige los días, la elevación mínima y los grupos de satélites.
+4. Pulsa **Calcular pasos**.
+5. Pulsa una fila para abrir el detalle modal.
+6. Activa **Avisar 5 min antes** o la campana de la cabecera para recibir el
+   aviso del escritorio.
+
+### En la web local
+
+1. Ejecuta `./run.sh` y abre <http://127.0.0.1:8765>.
+2. Escribe una dirección y pulsa **Buscar**.
+3. Elige los días, la elevación mínima y los grupos.
+4. Pulsa **Calcular pasos**.
+5. Pulsa una fila para ver el resumen, las frecuencias, el Doppler, la
+   trayectoria y los comandos.
+
+La primera vez se abre la guía **«Cómo leer esta tabla»**. El botón **?** de la
+barra superior abre el **glosario** con los términos explicados.
 
 La casilla **Solo satélites con frecuencia conocida** oculta los satélites de los
-que no hay frecuencia registrada (la mayoría de CubeSats). La configuración se
-guarda en el navegador.
+que no hay frecuencia registrada.
 
 ### CLI
+
+El CLI es común a las dos aplicaciones:
 
 ```bash
 python -m pasoorbital.cli --lat -33.45 --lon -70.66 --days 2 --min-el 10
@@ -283,7 +321,7 @@ curl -s -X POST http://127.0.0.1:8765/api/passes \
 
 ```
 pasoorbital/
-├── app.py              servidor HTTP y API
+├── app.py              servidor HTTP y API de la web local
 ├── pasoorbital/
 │   ├── tle.py          descarga/caché de TLE de CelesTrak
 │   ├── passes.py       SGP4 + geometría topocéntrica + búsqueda de pasos
@@ -291,7 +329,7 @@ pasoorbital/
 │   ├── geo.py          geocodificación y altitud (Nominatim/Open-Meteo)
 │   └── cli.py          interfaz de terminal
 ├── static/             interfaz web (HTML, CSS, JS sin dependencias)
-├── desktop/            aplicación GTK4/libadwaita y empaquetado .deb
+├── desktop/            app GTK4/libadwaita, build .deb y .rpm
 ├── docs/               capturas de pantalla
 ├── DESARROLLO.md       arquitectura, deuda técnica y hoja de ruta
 ├── LICENSE             licencia MIT
