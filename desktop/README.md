@@ -28,6 +28,19 @@ El paquete queda en `desktop/dist/pasoorbital_1.3.0-1_all.deb`.
 sudo apt install ./desktop/dist/pasoorbital_1.3.0-1_all.deb
 ```
 
+> **Aviso de apt al instalar un `.deb` local:** si aparece
+> «La descarga se realiza sin aislamiento como root…», es porque el archivo
+> está dentro de una carpeta privada (por ejemplo, `/home/tu-usuario` con
+> permisos 750) y el usuario `_apt` no puede leerlo. No es un error: el paquete
+> se instala igualmente. Para evitarlo, copia el `.deb` a `/tmp` e instálalo
+> desde allí:
+>
+> ```bash
+> cp dist/pasoorbital_1.3.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.3.0-1_all.deb
+> ```
+
+
 Si `python3-sgp4` no está disponible, habilita `universe`:
 
 ```bash
