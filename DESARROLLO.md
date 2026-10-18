@@ -2,7 +2,7 @@
 
 > **Para retomar el proyecto sin perder contexto.**
 > Autores: Marcos Matamala Fernandez y DeepSeek Harness (deepseek-flash).
-> Última actualización: 17 de octubre de 2026 · Versión: 1.3 (altitud automática)
+> Última actualización: 18 de octubre de 2026 · Versión: 1.4 (avisos de escritorio)
 
 ---
 
@@ -44,6 +44,7 @@ Aplicación local (servidor Python + interfaz web) que calcula **qué satélites
 - [x] CLI: `python -m pasoorbital.cli`.
 - [x] Aplicación de escritorio GTK4/libadwaita y paquete `.deb` (`desktop/`).
 - [x] Altitud del terreno automática con Open-Meteo al buscar dirección o usar GPS; caché y ajuste manual del edificio.
+- [x] Aviso de escritorio 5 minutos antes y resaltado de pasos próximos o en curso.
 
 ---
 
@@ -407,6 +408,7 @@ pasoorbital.example.com {
 | Oct 2026 | Corregido el comando de escucha LRPT de SatDump: el primer argumento es el pipeline (`meteor_m2-x_lrpt`), el segundo la carpeta de salida. |
 | Oct 2026 | Tabla: fechas relativas («hoy», «mañana», «Lunes 19 oct»), duración sin segundos y direcciones con nombre completo («Sur → Noreste»). |
 | Oct 2026 | Tabla simplificada: AOS pasa a «Aparece», se elimina la columna LOS (basta con Aparece + Duración) y el detalle usa «Punto más alto», «Termina» y «Dirección». |
+| Oct 2026 | Versión 1.4: avisos de escritorio 5 minutos antes y resaltado de filas; solo app GNOME. |
 | Oct 2026 | Mascota **Astro** (zorro de Darwin): ilustración final, variantes y versión vectorial simplificada; especificación en `docs/astro.yaml`. |
 | Oct 2026 | Versión 1.3: altitud del terreno automática con Open-Meteo en web y escritorio, con caché y ajuste manual del edificio. |
 | Oct 2026 | Versión de escritorio GTK4/libadwaita y paquete `.deb` 1.2.0 (`desktop/`). |
@@ -455,7 +457,7 @@ PasoOrbital sin navegador ni servidor HTTP.
 | `desktop/pasoorbital_gui/format.py` | Fechas relativas, duración, resumen, comandos e ICS. |
 | `desktop/pasoorbital_gui/skyplot.py` | Gráfico polar con Cairo. |
 | `desktop/pasoorbital_gui/style.css` | Estilos sobre libadwaita. |
-| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.3.0-1_all.deb`. |
+| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.4.0-1_all.deb`. |
 | `desktop/pasoorbital.desktop`, icono, metainfo y manpage | Integración con GNOME. |
 
 - **Dependencias del paquete:** `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`,
@@ -465,8 +467,11 @@ PasoOrbital sin navegador ni servidor HTTP.
   direcciones y altitudes en `~/.cache/pasoorbital/`.
 - **Pruebas:** se validó la interfaz con `gtk4-broadwayd` y Chrome headless;
   no hay Xvfb en el entorno de desarrollo.
+- **Avisos:** el temporizador GLib resalta los pasos a menos de 5 minutos y usa
+  `Gio.Notification`; solo funciona con la app abierta (el modo en segundo plano
+  queda para una fase posterior).
 - **Limitaciones:** sin geolocalización automática, sin glosario contextual en
-  la app, sin notificaciones, sin Flatpak y sin tests de interfaz automatizados.
+  la app, sin Flatpak y sin tests de interfaz automatizados.
   El paquete es `Architecture: all` y depende de `python3-sgp4` (compilado para
   la arquitectura).
 

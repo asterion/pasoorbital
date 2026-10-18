@@ -41,6 +41,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._geo_results: list[dict] = []
         self._elevation_token: tuple[float, float] | None = None
         self._setting_alt = False
+        self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
+        self._notified: set[tuple[int, int]] = set()
         self._detail_windows: list[Adw.Window] = []
         self.shown = 250
         self.elapsed = 0.0
@@ -54,6 +56,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._build_ui()
         self._apply_config()
         GLib.idle_add(self._initial_load)
+        GLib.timeout_add_seconds(10, self._tick)
 
     # ================================================================ UI
     def _build_ui(self) -> None:
@@ -155,6 +158,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         groups_box.append(row_bottom)
         groups_row.add_suffix(groups_box)
         prediction.add(groups_row)
+
+        self.notify_row = Adw.SwitchRow(title="Avisar 5 min antes")
+        self.notify_row.set_active(True)
+        self.notify_row.set_tooltip_text("Notificación del escritorio al acercarse un paso")
+        self.notify_row.connect("notify::active", lambda *_: self._save_config())
+        prediction.add(self.notify_row)
 
         page.add(prediction)
 
@@ -295,6 +304,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             "min_el": MIN_EL[self.el_row.get_selected()],
             "groups": groups,
             "only_freq": self.only_freq_check.get_active(),
+            "notify": self.notify_row.get_active(),
             "label": self.config.get("label", ""),
         }
         try:
@@ -325,6 +335,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         for group_id, switch in self.switches.items():
             switch.set_active(group_id in groups)
         self.only_freq_check.set_active(bool(cfg.get("only_freq", True)))
+        self.notify_row.set_active(bool(cfg.get("notify", True)))
 
         if cfg.get("label"):
             self.address_row.set_text(str(cfg["label"]))
@@ -442,6 +453,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         while child is not None:
             self.listbox.remove(child)
             child = self.listbox.get_first_child()
+        self._row_widgets.clear()
 
         query = self.search_entry.get_text().strip().lower()
         self.filtered = [item for item in self.items if not query or query in item.sat.name.lower()]
@@ -455,7 +467,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         self.stack.set_visible_child_name("results")
         for item in self.filtered[: self.shown]:
-            self.listbox.append(self._make_row(item))
+            row = self._make_row(item)
+            self.listbox.append(row)
+            self._row_widgets[self._pass_key(item)] = row
         self.meta_label.set_text(
             f"{len(self.filtered)} de {len(self.items)} pasos · calculado en {self.elapsed:.1f} s"
         )
@@ -463,6 +477,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.more_btn.set_visible(remaining > 0)
         if remaining > 0:
             self.more_btn.set_label(f"Mostrar más ({remaining} restantes)")
+        self._tick()
 
     def _make_row(self, item: PassItem) -> Gtk.Widget:
         now = time.time()
@@ -477,6 +492,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             subtitle += " · en curso"
 
         row = Adw.ActionRow()
+        row.add_css_class("pass-row")
         row.set_use_markup(False)
         row.set_title(item.sat.name)
         row.set_subtitle(subtitle)
@@ -499,6 +515,53 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
         row.connect("activated", lambda *_: self.show_detail(item))
         return row
+
+    # ================================================================ avisos
+    @staticmethod
+    def _pass_key(item: PassItem) -> tuple[int, int]:
+        return (item.sat.norad, int(round(item.aos)))
+
+    def _tick(self) -> bool:
+        """Resalta los pasos próximos y avisa 5 minutos antes."""
+        now = time.time()
+        lead = 5 * 60.0
+        soon: set[tuple[int, int]] = set()
+        live: set[tuple[int, int]] = set()
+        for item in self.items:
+            key = self._pass_key(item)
+            if item.aos <= now <= item.los:
+                live.add(key)
+            elif 0 < item.aos - now <= lead:
+                soon.add(key)
+                if self.notify_row.get_active() and key not in self._notified:
+                    self._notified.add(key)
+                    self._send_notification(item, now)
+        for key, row in self._row_widgets.items():
+            row.remove_css_class("soon")
+            row.remove_css_class("live")
+            if key in soon:
+                row.add_css_class("soon")
+            elif key in live:
+                row.add_css_class("live")
+        return True
+
+    def _send_notification(self, item: PassItem, now: float) -> None:
+        minutes = max(1, round((item.aos - now) / 60.0))
+        note = Gio.Notification.new(f"{item.sat.name} en {minutes} min")
+        direction = (
+            f"{fmt.compass_word(item.az_aos).capitalize()} → "
+            f"{fmt.compass_word(item.az_los).capitalize()}"
+        )
+        freq = f" · {fmt.fmt_freq(item.freq_hz)}" if item.freq_hz else ""
+        note.set_body(
+            f"{fmt.fmt_time(item.aos)} · Altura {item.max_el:.0f}° · {direction}{freq}"
+        )
+        note.set_icon(Gio.ThemedIcon.new("io.github.asterion.PasoOrbital"))
+        note.set_priority(Gio.NotificationPriority.HIGH)
+        note.set_default_action("app.present")
+        self.app.send_notification(
+            f"pass-{item.sat.norad}-{int(item.aos)}", note
+        )
 
     # ================================================================ detalle
     def show_detail(self, item: PassItem) -> None:
