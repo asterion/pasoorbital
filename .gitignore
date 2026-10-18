@@ -1,0 +1,30 @@
+# Entornos virtuales
+.venv/
+.venv-*/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Datos generados (TLE y caché)
+data/tle/
+data/cache/
+data/frequencies.json
+
+# Empaquetado
+build/
+dist/
+desktop/build/
+desktop/dist/
+*.deb
+
+# Secretos y temporales
+.env
+*.log
+.DS_Store
+
+# Credenciales locales de gh (nunca se publican)
+.gh-config/

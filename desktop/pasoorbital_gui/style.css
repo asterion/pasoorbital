@@ -1,0 +1,39 @@
+.mono {
+  font-family: monospace;
+}
+
+.summary {
+  background-color: alpha(@accent_bg_color, 0.10);
+  border: 1px solid alpha(@accent_color, 0.28);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 1.02em;
+}
+
+.stat {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.stat-value {
+  font-family: monospace;
+  font-size: 1.06em;
+}
+
+.badge {
+  background-color: alpha(@accent_bg_color, 0.18);
+  color: @accent_color;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.command {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 10px;
+  padding: 10px 12px;
+}

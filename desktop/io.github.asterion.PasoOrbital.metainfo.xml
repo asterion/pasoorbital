@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.asterion.PasoOrbital</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>PasoOrbital</name>
+  <summary>Pasos de satélites para escucha radio</summary>
+  <description>
+    <p>PasoOrbital calcula qué satélites pasan por tu ubicación, con hora, altura, dirección, duración, frecuencia de escucha y efecto Doppler.</p>
+    <p>Incluye un resumen en lenguaje llano de cada paso, gráficos de la trayectoria en el cielo y comandos listos para copiar para RTL-SDR, SatDump o noaa-apt.</p>
+    <ul>
+      <li>Predicción de 1, 2, 3 o 7 días.</li>
+      <li>Frecuencias de satélites meteorológicos, ISS y radioaficionados.</li>
+      <li>Guía y glosario integrados para quien empieza.</li>
+    </ul>
+    <p>Desarrollado por Marcos Matamala Fernandez, con DeepSeek Harness (deepseek-flash) como coautor de la implementación.</p>
+  </description>
+  <launchable type="desktop-id">io.github.asterion.PasoOrbital.desktop</launchable>
+  <provides>
+    <binary>pasoorbital-gui</binary>
+  </provides>
+  <categories>
+    <category>Science</category>
+    <category>Astronomy</category>
+  </categories>
+  <developer id="io.github.asterion">
+    <name>Marcos Matamala Fernandez</name>
+  </developer>
+  <url type="homepage">https://github.com/asterion/pasoorbital</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.2.0" date="2026-10-17">
+      <description>
+        <p>Primera versión de escritorio para GNOME.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PasoOrbital · Pasos de satélites para escucha</title>
+<meta name="description" content="Predicción de pasos de satélites por tu ubicación con hora, elevación, frecuencia y efecto Doppler.">
+<link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="45" height="45" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+      <ellipse cx="24" cy="26" rx="15" ry="6" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-28 24 26)"/>
+      <circle cx="33" cy="17" r="3.2" fill="currentColor"/>
+      <path d="M24 26l4.5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>PasoOrbital</h1>
+      <p>Pasos de satélites para escucha</p>
+    </div>
+  </div>
+  <div class="topbar-status">
+    <span class="chip" id="tz-chip" title="Zona horaria usada para mostrar las horas">—</span>
+    <span class="chip" id="tle-chip" title="Antigüedad de los TLE descargados">TLE: …</span>
+    <button class="icon-btn" id="help-btn" title="Ayuda y glosario" aria-label="Abrir ayuda y glosario">?</button>
+    <button class="icon-btn" id="refresh-tle" title="Volver a descargar los TLE" aria-label="Actualizar TLE">⟳</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <section class="card">
+      <h2><span class="num">1</span> Ubicación</h2>
+      <label class="field" for="address">Dirección</label>
+      <div class="input-row">
+        <input id="address" type="text" placeholder="Ej.: Plaza de Armas, Santiago" autocomplete="off">
+        <button id="search-address" class="btn">Buscar</button>
+      </div>
+      <ul id="geo-results" class="geo-results" hidden></ul>
+      <button id="geo-btn" class="btn ghost full" type="button">Usar mi ubicación actual</button>
+      <div class="grid-3">
+        <label class="field">Latitud
+          <input id="lat" type="number" step="0.0001" min="-90" max="90" placeholder="-33.45" inputmode="decimal">
+        </label>
+        <label class="field">Longitud
+          <input id="lon" type="number" step="0.0001" min="-180" max="180" placeholder="-70.66" inputmode="decimal">
+        </label>
+        <label class="field">Altitud (m)
+          <input id="alt" type="number" step="10" min="-500" max="9000" value="0" inputmode="numeric">
+        </label>
+      </div>
+      <p class="hint" id="loc-label">Sin ubicación: busca una dirección o usa tu posición.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span> Predicción</h2>
+      <div class="grid-2">
+        <label class="field">Días
+          <select id="days">
+            <option value="1">1 día</option>
+            <option value="2" selected>2 días</option>
+            <option value="3">3 días</option>
+            <option value="7">7 días</option>
+          </select>
+        </label>
+        <label class="field">Elevación mínima
+          <select id="min-el">
+            <option value="0">0° (horizonte)</option>
+            <option value="5" selected>5°</option>
+            <option value="10">10°</option>
+            <option value="15">15°</option>
+            <option value="20">20°</option>
+            <option value="30">30°</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">Elevación mínima: 0° incluye pasos muy bajos, difíciles de oír; 10°–15° suele dar mejor señal.</p>
+      <fieldset class="groups">
+        <legend>Grupos de satélites</legend>
+        <div id="groups" class="group-list">
+          <p class="hint">Cargando catálogo…</p>
+        </div>
+      </fieldset>
+      <label class="check">
+        <input type="checkbox" id="only-freq" checked>
+        Solo satélites con frecuencia conocida
+      </label>
+      <button id="calc" class="btn primary full" type="button">Calcular pasos</button>
+      <p class="hint" id="calc-hint">Calcula cuándo pasa, por dónde y en qué frecuencia escucharlo.</p>
+    </section>
+
+    <section class="card next" id="next-card" hidden>
+      <h2><span class="num">3</span> Próximo paso</h2>
+      <div id="next-body"></div>
+    </section>
+
+    <p class="footnote">
+      TLE: <a href="https://celestrak.org/" target="_blank" rel="noreferrer">CelesTrak</a> ·
+      Cálculo: SGP4 ·
+      Direcciones: <a href="https://www.openstreetmap.org/" target="_blank" rel="noreferrer">OpenStreetMap</a>.
+      Las frecuencias son orientativas.
+    </p>
+  </aside>
+
+  <section class="results">
+    <div class="results-head">
+      <div>
+        <h2>Pasos</h2>
+        <p class="hint" id="pass-meta">Configura tu ubicación y pulsa «Calcular pasos».</p>
+      </div>
+      <div class="results-tools">
+        <input id="filter" type="search" placeholder="Filtrar por satélite…" autocomplete="off">
+        <button id="help-toggle" class="btn ghost" type="button">¿Cómo leer esto?</button>
+        <button id="ics" class="btn ghost" type="button" disabled>Calendario .ics</button>
+      </div>
+    </div>
+
+    <div class="tzline">
+      <label class="check" title="UTC es la hora de referencia mundial. Desmárcalo para ver la hora local de tu navegador."><input type="checkbox" id="utc"> Mostrar en UTC</label>
+      <span class="mono" id="now-clock"></span>
+    </div>
+
+    <section id="help-panel" class="help-panel" hidden>
+      <div class="help-head">
+        <h3>Cómo leer esta tabla</h3>
+        <button class="icon-btn" id="help-close" type="button" aria-label="Cerrar la guía">×</button>
+      </div>
+      <div class="help-grid">
+        <div class="help-item">
+          <span class="help-kicker">Aparece · Duración · Altura</span>
+          <p><strong>Aparece</strong> es la hora en que el satélite sale por el horizonte. La <strong>Duración</strong> indica cuánto tiempo estará visible. La <strong>Altura</strong> es su punto más alto: cuanto mayor, mejor señal. Un paso suele durar entre 3 y 12 minutos.</p>
+        </div>
+        <div class="help-item">
+          <span class="help-kicker">Altura</span>
+          <p>Es la <strong>altura sobre el horizonte</strong> en grados: 0° es el horizonte y 90° justo encima de ti. Más de 30° es un buen paso: más señal y menos obstáculos.</p>
+        </div>
+        <div class="help-item">
+          <span class="help-kicker">Dirección</span>
+          <p>Es la <strong>dirección</strong> por la que aparece y por la que se va: 0° norte, 90° este, 180° sur, 270° oeste. Si ves <em>S → E</em>, aparece por el sur y se va por el este.</p>
+        </div>
+      </div>
+      <div class="help-foot">
+        <svg viewBox="0 0 120 120" class="compass-mini" aria-hidden="true">
+          <circle cx="60" cy="60" r="46" fill="#081019" stroke="#1d2a3a"/>
+          <circle cx="60" cy="60" r="30" fill="none" stroke="#16202e"/>
+          <circle cx="60" cy="60" r="15" fill="none" stroke="#16202e"/>
+          <line x1="60" y1="14" x2="60" y2="106" stroke="#16202e"/>
+          <line x1="14" y1="60" x2="106" y2="60" stroke="#16202e"/>
+          <text x="60" y="10" text-anchor="middle" fill="#7f93a8" font-size="10" font-family="sans-serif">N</text>
+          <text x="60" y="118" text-anchor="middle" fill="#7f93a8" font-size="10" font-family="sans-serif">S</text>
+          <text x="114" y="63" text-anchor="middle" fill="#7f93a8" font-size="10" font-family="sans-serif">E</text>
+          <text x="6" y="63" text-anchor="middle" fill="#7f93a8" font-size="10" font-family="sans-serif">O</text>
+          <path d="M60 60 L82 38" stroke="#3fe0c5" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="82" cy="38" r="3.2" fill="#ffb454"/>
+        </svg>
+        <div class="help-actions">
+          <button class="btn ghost" id="help-glossary" type="button">Ver glosario completo</button>
+          <button class="btn primary" id="help-ok" type="button">Entendido</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="error" class="error" hidden></div>
+    <div id="empty" class="empty">
+      <div class="empty-icon">🛰</div>
+      <h3>Sin pasos todavía</h3>
+      <p>Indica una dirección o unas coordenadas y pulsa <strong>Calcular pasos</strong>.</p>
+    </div>
+
+    <div id="table-wrap" class="table-wrap" hidden>
+      <table id="pass-table">
+        <thead>
+          <tr>
+            <th>Satélite</th>
+            <th>Aparece <button class="help-dot" type="button" data-term="aos" aria-label="Qué significa «Aparece» (AOS)">?</button></th>
+            <th class="num-col">Duración <button class="help-dot" type="button" data-term="duracion" aria-label="Qué significa la duración">?</button></th>
+            <th class="num-col">Altura <button class="help-dot" type="button" data-term="elevacion" aria-label="Qué significa la altura o elevación">?</button></th>
+            <th class="az-col">Dirección <button class="help-dot" type="button" data-term="azimut" aria-label="Qué significa el azimut o dirección">?</button></th>
+            <th>Frecuencia <button class="help-dot" type="button" data-term="downlink" aria-label="Qué significa frecuencia">?</button></th>
+            <th class="num-col">Desvío <button class="help-dot" type="button" data-term="doppler" aria-label="Qué es el Doppler">?</button></th>
+          </tr>
+        </thead>
+        <tbody id="pass-body"></tbody>
+      </table>
+      <div class="more"><button id="more" class="btn ghost" type="button" hidden>Mostrar más pasos</button></div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" type="button" data-close aria-label="Cerrar">×</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="glossary" class="modal glossary" hidden>
+  <div class="modal-backdrop" data-glossary-close></div>
+  <div class="modal-card glossary-card" role="dialog" aria-modal="true" aria-labelledby="glossary-title">
+    <button class="modal-close" type="button" data-glossary-close aria-label="Cerrar el glosario">×</button>
+    <h2 id="glossary-title">Glosario</h2>
+    <p class="hint">Los términos de la página, explicados sin tecnicismos. Pulsa cualquier «?» de la tabla para volver aquí.</p>
+    <div id="glossary-body" class="glossary-list"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="static/app.js"></script>
+</body>
+</html>
