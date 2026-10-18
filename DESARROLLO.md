@@ -407,6 +407,7 @@ pasoorbital.example.com {
 | Oct 2026 | Corregido el comando de escucha LRPT de SatDump: el primer argumento es el pipeline (`meteor_m2-x_lrpt`), el segundo la carpeta de salida. |
 | Oct 2026 | Tabla: fechas relativas («hoy», «mañana», «Lunes 19 oct»), duración sin segundos y direcciones con nombre completo («Sur → Noreste»). |
 | Oct 2026 | Tabla simplificada: AOS pasa a «Aparece», se elimina la columna LOS (basta con Aparece + Duración) y el detalle usa «Punto más alto», «Termina» y «Dirección». |
+| Oct 2026 | Mascota **Astro** (zorro de Darwin) en SVG y PNG, con avatar y especificación de marca en `docs/astro.yaml`. |
 | Oct 2026 | Versión 1.3: altitud del terreno automática con Open-Meteo en web y escritorio, con caché y ajuste manual del edificio. |
 | Oct 2026 | Versión de escritorio GTK4/libadwaita y paquete `.deb` 1.2.0 (`desktop/`). |
 | Oct 2026 | Versión 1.1: guía «Cómo leer esta tabla», glosario contextual, cabeceras en lenguaje claro, resumen en lenguaje llano, pista de elevación mínima, ayuda UTC. |

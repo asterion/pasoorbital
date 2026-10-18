@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Astro, mascota de PasoOrbital</title>
+  <desc id="desc">Zorro de Darwin de estilo vectorial plano, sentado y mirando hacia el cielo. Pelaje gris pizarra, patas y bordes de orejas cobrizos, pecho crema y ojos azules.</desc>
+
+  <!-- ==================== PALETA ====================
+       tinta      #1E222A
+       pizarra    #2F3542
+       sombra     #262B36
+       brillo     #3B4352
+       cobre      #C85A17
+       cobre som. #A84A12
+       cobre luz  #E06A24
+       crema      #F5F6FA
+       crema som. #E2E4EE
+       ojo        #3742FA
+       ojo oscuro #2A34C9
+  ==================================================== -->
+
+  <!-- ==================== COLA ==================== -->
+  <g id="tail">
+    <clipPath id="tailClip">
+      <path d="M 600 700
+               C 660 780 790 805 870 745
+               C 930 700 960 630 955 560
+               C 950 500 930 450 900 420
+               C 875 395 845 390 825 410
+               C 805 430 800 460 815 485
+               C 790 500 760 520 730 545
+               C 690 580 645 640 600 700
+               Z"/>
+    </clipPath>
+
+    <g clip-path="url(#tailClip)">
+      <path d="M 600 700
+               C 660 780 790 805 870 745
+               C 930 700 960 630 955 560
+               C 950 500 930 450 900 420
+               C 875 395 845 390 825 410
+               C 805 430 800 460 815 485
+               C 790 500 760 520 730 545
+               C 690 580 645 640 600 700
+               Z" fill="#2F3542"/>
+
+      <!-- sombra y brillo del pelaje -->
+      <path d="M 620 690 C 670 720 730 735 790 725 C 735 752 665 735 630 705 C 622 698 618 694 620 690 Z" fill="#262B36" opacity="0.8"/>
+      <path d="M 785 430 C 825 440 860 470 880 510 C 855 480 825 460 780 450 Z" fill="#3B4352" opacity="0.9"/>
+      <path d="M 915 620 C 935 585 942 545 935 510" fill="none" stroke="#3B4352" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+      <path d="M 825 695 C 858 684 884 662 900 635" fill="none" stroke="#262B36" stroke-width="9" stroke-linecap="round" opacity="0.4"/>
+      <path d="M 812 520 C 836 528 855 545 866 570" fill="none" stroke="#3B4352" stroke-width="8" stroke-linecap="round" opacity="0.4"/>
+
+      <!-- capa cobriza de la punta -->
+      <path d="M 780 435 L 900 395 L 935 445 L 900 510 L 785 480 Z" fill="#C85A17"/>
+      <path d="M 812 432 C 842 405 875 412 900 438" fill="none" stroke="#E06A24" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+
+      <!-- franja cobriza del borde exterior -->
+      <path d="M 900 730 C 945 690 960 630 950 570" fill="none" stroke="#C85A17" stroke-width="28" stroke-linecap="round"/>
+    </g>
+
+    <path d="M 600 700
+             C 660 780 790 805 870 745
+             C 930 700 960 630 955 560
+             C 950 500 930 450 900 420
+             C 875 395 845 390 825 410
+             C 805 430 800 460 815 485
+             C 790 500 760 520 730 545
+             C 690 580 645 640 600 700
+             Z" fill="none" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+
+  <!-- ==================== OREJAS ==================== -->
+  <g id="ears">
+    <!-- oreja izquierda -->
+    <path d="M 375 300 C 365 250 365 195 382 145 C 390 122 405 120 418 140 C 445 178 470 215 488 245 C 450 250 410 272 375 300 Z" fill="#2F3542" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 386 158 C 375 205 372 255 380 288" fill="none" stroke="#C85A17" stroke-width="18" stroke-linecap="round"/>
+    <path d="M 398 170 C 410 196 432 225 452 242 C 430 250 407 264 390 278 C 381 242 382 202 398 170 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M 402 196 C 413 216 427 235 441 248" fill="none" stroke="#E2E4EE" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- oreja derecha -->
+    <path d="M 649 300 C 659 250 659 195 642 145 C 634 122 619 120 606 140 C 579 178 554 215 536 245 C 574 250 614 272 649 300 Z" fill="#2F3542" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 638 158 C 649 205 652 255 644 288" fill="none" stroke="#C85A17" stroke-width="18" stroke-linecap="round"/>
+    <path d="M 626 170 C 614 196 592 225 572 242 C 594 250 617 264 634 278 C 643 242 642 202 626 170 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M 622 196 C 611 216 597 235 583 248" fill="none" stroke="#E2E4EE" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- ==================== PATAS TRASERAS ==================== -->
+  <g id="hind-feet">
+    <path d="M 360 745 C 355 715 380 695 415 700 C 455 706 480 735 470 765 C 460 792 410 805 380 790 C 365 782 360 765 360 745 Z" fill="#C85A17" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 620 745 C 625 715 655 700 690 710 C 725 720 740 750 725 775 C 710 800 660 805 635 788 C 623 779 618 762 620 745 Z" fill="#C85A17" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 398 788 C 412 780 430 780 444 786" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 646 792 C 660 782 678 782 692 788" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 376 760 C 390 748 410 746 426 752" fill="none" stroke="#A84A12" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+    <path d="M 636 755 C 650 744 670 744 684 750" fill="none" stroke="#A84A12" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+  </g>
+
+  <!-- ==================== CUERPO ==================== -->
+  <g id="body">
+    <path d="M 405 650 C 395 565 440 500 500 480 C 560 460 620 500 645 570 C 668 645 650 725 600 765 C 550 803 470 785 430 740 C 407 714 400 682 405 650 Z" fill="#2F3542" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 420 690 C 435 745 485 778 540 776 C 585 774 620 748 638 712 C 632 750 600 785 550 795 C 490 807 440 780 420 730 C 414 716 414 702 420 690 Z" fill="#262B36" opacity="0.8"/>
+    <path d="M 605 530 C 630 565 645 615 642 660 C 639 700 620 735 592 758 C 612 724 620 685 618 645 C 616 605 610 565 595 540 Z" fill="#3B4352" opacity="0.55"/>
+  </g>
+
+  <!-- ==================== PECHO ==================== -->
+  <g id="chest">
+    <path d="M 500 500 C 530 488 565 498 585 528 C 610 566 610 630 590 682 C 572 730 530 752 498 730 C 462 704 452 640 462 585 C 468 545 480 512 500 500 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M 500 500 C 482 516 470 548 466 585 C 460 638 470 692 496 720 C 510 735 530 738 548 728 C 520 744 490 728 476 700 C 458 664 456 610 468 570 C 477 540 488 516 500 500 Z" fill="#E2E4EE" opacity="0.9"/>
+    <path d="M 492 548 C 512 536 536 540 550 556" fill="none" stroke="#E2E4EE" stroke-width="9" stroke-linecap="round"/>
+    <path d="M 480 600 C 500 586 526 588 542 602" fill="none" stroke="#E2E4EE" stroke-width="9" stroke-linecap="round"/>
+  </g>
+
+  <!-- ==================== PATAS DELANTERAS ==================== -->
+  <g id="front-legs">
+    <!-- izquierda -->
+    <path d="M 455 590 C 440 630 434 685 444 728 C 450 750 476 756 491 740 C 506 724 505 687 495 648 C 488 618 480 600 470 585 Z" fill="#C85A17" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 460 716 C 474 707 488 710 496 720" fill="none" stroke="#A84A12" stroke-width="9" stroke-linecap="round" opacity="0.8"/>
+    <path d="M 463 744 C 470 736 481 736 489 742" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- derecha -->
+    <path d="M 560 585 C 550 625 548 682 558 724 C 565 748 591 752 604 735 C 617 718 613 680 603 640 C 596 610 586 590 575 575 Z" fill="#C85A17" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 566 712 C 580 704 594 707 602 718" fill="none" stroke="#A84A12" stroke-width="9" stroke-linecap="round" opacity="0.8"/>
+    <path d="M 572 740 C 580 732 591 732 599 738" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- ==================== CABEZA ==================== -->
+  <g id="head">
+    <path d="M 350 380 C 340 305 382 240 448 216 C 508 194 575 208 620 248 C 674 296 690 372 655 438 C 626 495 566 522 510 512 C 450 502 376 462 350 380 Z" fill="#2F3542" stroke="#1E222A" stroke-width="12" stroke-linejoin="round"/>
+
+    <!-- sombra lateral izquierda -->
+    <path d="M 365 370 C 360 425 390 472 435 495 C 405 490 378 468 364 438 C 354 416 354 390 365 370 Z" fill="#262B36" opacity="0.8"/>
+    <!-- brillo superior -->
+    <path d="M 445 232 C 500 216 555 230 592 262 C 555 244 505 238 462 248 C 452 250 446 244 445 232 Z" fill="#3B4352" opacity="0.9"/>
+
+
+    <!-- hocico y mandíbula -->
+    <path d="M 420 420 C 445 390 495 385 525 405 C 555 425 590 455 620 435 C 645 420 655 442 638 472 C 612 518 562 542 512 536 C 462 530 424 500 410 466 C 402 447 408 432 420 420 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M 425 480 C 450 516 490 532 525 528 C 500 538 462 530 438 508 C 428 498 424 490 425 480 Z" fill="#E2E4EE" opacity="0.9"/>
+
+    <!-- ojos -->
+    <g id="eyes">
+      <!-- ojo izquierdo -->
+      <path d="M 430 372 C 430 338 450 320 474 326 C 496 332 505 356 500 382 C 494 408 470 418 450 408 C 437 401 430 388 430 372 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="9" stroke-linejoin="round"/>
+      <circle cx="473" cy="351" r="19" fill="#3742FA"/>
+      <circle cx="475" cy="348" r="9" fill="#1E222A"/>
+      <circle cx="467" cy="342" r="6" fill="#FFFFFF"/>
+      <circle cx="480" cy="357" r="3" fill="#FFFFFF" opacity="0.85"/>
+      <path d="M 436 358 C 442 338 456 328 472 330" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+
+      <!-- ojo derecho -->
+      <path d="M 590 360 C 592 326 612 310 636 318 C 658 326 664 350 658 376 C 650 402 626 410 608 398 C 596 390 590 376 590 360 Z" fill="#F5F6FA" stroke="#1E222A" stroke-width="9" stroke-linejoin="round"/>
+      <circle cx="633" cy="339" r="19" fill="#3742FA"/>
+      <circle cx="635" cy="336" r="9" fill="#1E222A"/>
+      <circle cx="627" cy="330" r="6" fill="#FFFFFF"/>
+      <circle cx="640" cy="345" r="3" fill="#FFFFFF" opacity="0.85"/>
+      <path d="M 596 346 C 602 326 616 318 632 320" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+    </g>
+
+    <!-- nariz -->
+    <path d="M 498 445 C 505 437 525 437 532 445 C 532 457 524 467 515 469 C 506 467 498 457 498 445 Z" fill="#1E222A"/>
+    <circle cx="509" cy="444" r="4" fill="#FFFFFF" opacity="0.65"/>
+
+    <!-- boca -->
+    <path d="M 515 469 L 515 482" fill="none" stroke="#1E222A" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 487 477 Q 515 506 543 477" fill="none" stroke="#1E222A" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- puntos de bigotes -->
+    <g fill="#1E222A" opacity="0.7">
+      <circle cx="470" cy="478" r="3"/>
+      <circle cx="486" cy="486" r="3"/>
+      <circle cx="560" cy="478" r="3"/>
+      <circle cx="544" cy="486" r="3"/>
+    </g>
+  </g>
+</svg>

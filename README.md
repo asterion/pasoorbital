@@ -37,6 +37,18 @@ TLE para poder predecir sin conexión.
 - **Calendario .ics** para llevar los pasos al móvil.
 - **CLI** para consultar desde la terminal.
 
+## Mascota
+
+<p align="center"><img src="docs/astro.png" alt="Astro, zorro de Darwin y mascota de PasoOrbital" width="220"></p>
+
+**Astro** es un zorro de Darwin (*Lycalopex fulvipes*) que mira al cielo en busca
+de satélites. Es la mascota oficial de PasoOrbital. La especificación de marca
+está en [docs/astro.yaml](docs/astro.yaml); hay versiones en
+[512 px](docs/astro-512.png) y [avatar](docs/astro-avatar.png).
+
+Diseño vectorial: DeepSeek Harness (deepseek-flash), a partir de la
+especificación de Marcos Matamala Fernandez.
+
 ## Instalación
 
 Requisitos: Python 3.10 o superior y conexión a internet la primera vez
