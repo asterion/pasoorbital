@@ -12,7 +12,7 @@ body:
     id: version
     attributes:
       label: Versión de PasoOrbital
-      placeholder: "1.6.0 / paquete .deb / web"
+      placeholder: "1.7.0 / paquete .deb / web"
     validations:
       required: true
   - type: dropdown

@@ -166,9 +166,9 @@ def command_for(channel: dict, item: PassItem) -> str:
         )
     if "LRPT" in mode:
         return (
-            "# LRPT con SatDump (Ctrl+C para terminar)\n"
+            "# LRPT con SatDump 1.2.2 (Ctrl+C para terminar)\n"
             f"satdump live meteor_m2-x_lrpt ./{slug}-lrpt --source rtlsdr \\\n"
-            f"  --frequency {lrpt_mhz}e6 --samplerate 2.4e6 --gain 40"
+            f"  --frequency {lrpt_mhz}e6 --samplerate 2.4e6 --gain 30"
         )
     if "APRS" in mode:
         return (
