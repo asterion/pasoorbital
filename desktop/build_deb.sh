@@ -5,7 +5,7 @@ umask 022
 cd "$(dirname "$0")"
 
 PKG=pasoorbital
-VERSION=1.8.0
+VERSION=1.9.0
 ARCH=all
 STAGE="$PWD/build/${PKG}_${VERSION}-1_${ARCH}"
 DIST="$PWD/dist"
@@ -54,7 +54,7 @@ install -m 644 ../LICENSE "$STAGE/usr/share/doc/pasoorbital/copyright"
 install -m 644 ../AUTHORS.md "$STAGE/usr/share/doc/pasoorbital/AUTHORS.md"
 install -m 644 README.md "$STAGE/usr/share/doc/pasoorbital/README.desktop.md"
 gzip -9n -c > "$STAGE/usr/share/doc/pasoorbital/changelog.Debian.gz" <<'CHANGELOG'
-pasoorbital (1.8.0-1) unstable; urgency=medium
+pasoorbital (1.9.0-1) unstable; urgency=medium
 
   * Primera versión de escritorio para GNOME (GTK4 + libadwaita).
 

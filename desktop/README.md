@@ -8,7 +8,8 @@ del navegador. Resalta los pasos que aparecen en los próximos 5 minutos, avisa
 con una notificación del escritorio que abre el detalle del paso. La pantalla
 principal destaca el próximo paso, muestra a **Astro** en la cabecera y el
 detalle usa pestañas **Resumen**, **Radio** y **Cielo**, sin scroll. Los comandos
-LRPT están ajustados a SatDump 1.2.2.
+LRPT están ajustados a SatDump 1.2.2. La pestaña **Cielo** muestra en vivo el
+marcador del satélite, su estela y el progreso del paso.
 
 ## Requisitos
 
@@ -26,7 +27,7 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.8.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.9.0-1_all.deb`.
 
 ## Construir e instalar el RPM
 
@@ -36,19 +37,19 @@ sin repositorio ni `dnf`, para Fedora 41/42 (Python 3.13).
 ```bash
 cd desktop
 ./build_rpm.sh
-sudo rpm -ivh dist/pasoorbital_1.8.0-1.noarch.rpm
+sudo rpm -ivh dist/pasoorbital_1.9.0-1.noarch.rpm
 ```
 
 Para actualizar:
 
 ```bash
-sudo rpm -Uvh dist/pasoorbital_1.8.0-1.noarch.rpm
+sudo rpm -Uvh dist/pasoorbital_1.9.0-1.noarch.rpm
 ```
 
 ## Instalar el .deb
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.8.0-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.9.0-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -59,8 +60,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.8.0-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.8.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.8.0-1_all.deb
+> cp dist/pasoorbital_1.9.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
 > ```
 
 

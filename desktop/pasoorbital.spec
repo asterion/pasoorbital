@@ -1,5 +1,5 @@
 Name:           pasoorbital
-Version:        1.8.0
+Version:        1.9.0
 Release:        1
 Summary:        Predicción de pasos de satélites para escucha radio
 License:        MIT
@@ -102,5 +102,6 @@ fi
 %doc README.md AUTHORS.md
 
 %changelog
-* Sun Oct 18 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.8.0-1
+* Sun Oct 18 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.0-1
+- Cielo en vivo con marcador, estela y progreso del paso.
 - Paquete RPM instalable con rpm.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_left
 from datetime import datetime
 
 import gi
@@ -24,16 +25,43 @@ def _rgb(cr, color):
     cr.set_source_rgb(*color)
 
 
+def sample_track(points, now: float):
+    """Interpola az/el/distancia/rate del track en el instante ``now``."""
+    if not points:
+        return None
+    if now <= points[0][0]:
+        return points[0]
+    if now >= points[-1][0]:
+        return points[-1]
+    times = [p[0] for p in points]
+    index = bisect_left(times, now)
+    p0 = points[max(0, index - 1)]
+    p1 = points[min(len(points) - 1, index)]
+    span = p1[0] - p0[0]
+    fraction = (now - p0[0]) / span if span else 0.0
+    delta_az = ((p1[1] - p0[1] + 180.0) % 360.0) - 180.0
+    az = (p0[1] + delta_az * fraction) % 360.0
+    el = p0[2] + (p1[2] - p0[2]) * fraction
+    rng = p0[3] + (p1[3] - p0[3]) * fraction
+    rate = p0[4] + (p1[4] - p0[4]) * fraction
+    return (now, az, el, rng, rate)
+
+
 class SkyPlot(Gtk.DrawingArea):
     def __init__(self, points: list[tuple[float, float, float, float, float]], item: PassItem):
         super().__init__()
         self.points = points
         self.item = item
+        self.now: float | None = None
         self.set_content_width(320)
         self.set_content_height(320)
         self.set_hexpand(False)
         self.set_halign(Gtk.Align.CENTER)
         self.set_draw_func(self._draw)
+
+    def set_now(self, now: float | None) -> None:
+        self.now = now
+        self.queue_draw()
 
     def _xy(self, cx: float, cy: float, radius: float, az: float, el: float):
         r = radius * (1.0 - max(0.0, min(90.0, el)) / 90.0)
@@ -70,6 +98,7 @@ class SkyPlot(Gtk.DrawingArea):
             cr.stroke()
 
         # trayectoria
+        live = self.now is not None and self.item.aos <= self.now <= self.item.los
         pts = [
             self._xy(cx, cy, radius, az, el)
             for _t, az, el, _rng, _rate in self.points
@@ -79,10 +108,30 @@ class SkyPlot(Gtk.DrawingArea):
             cr.move_to(*pts[0])
             for x, y in pts[1:]:
                 cr.line_to(x, y)
-            _rgb(cr, ACCENT)
+            if live:
+                cr.set_source_rgba(*ACCENT, 0.30)
+            else:
+                _rgb(cr, ACCENT)
             cr.set_line_width(2.6)
             cr.set_line_cap(1)  # Cairo.LINE_CAP_ROUND
             cr.stroke()
+
+        current = sample_track(self.points, self.now) if live else None
+        if current is not None and current[2] is not None and current[2] >= 0:
+            trail = [
+                self._xy(cx, cy, radius, az, el)
+                for t, az, el, _rng, _rate in self.points
+                if t <= self.now and el is not None and el >= 0
+            ]
+            trail.append(self._xy(cx, cy, radius, current[1], current[2]))
+            if len(trail) >= 2:
+                cr.move_to(*trail[0])
+                for x, y in trail[1:]:
+                    cr.line_to(x, y)
+                _rgb(cr, ACCENT)
+                cr.set_line_width(2.8)
+                cr.set_line_cap(1)
+                cr.stroke()
 
         def dot(x, y, color):
             cr.arc(x, y, 4.5, 0, 2 * math.pi)
@@ -101,6 +150,19 @@ class SkyPlot(Gtk.DrawingArea):
             best = max(self.points, key=lambda p: p[2] if p[2] is not None else -90)
             if best[2] is not None:
                 dot(*self._xy(cx, cy, radius, best[1], best[2]), AMBER)
+
+        # marcador en vivo
+        if current is not None and current[2] is not None and current[2] >= 0:
+            x, y = self._xy(cx, cy, radius, current[1], current[2])
+            cr.arc(x, y, 10.0, 0, 2 * math.pi)
+            cr.set_source_rgba(*ACCENT, 0.24)
+            cr.fill()
+            cr.arc(x, y, 5.2, 0, 2 * math.pi)
+            _rgb(cr, (1.0, 1.0, 1.0))
+            cr.fill()
+            cr.set_line_width(1.6)
+            _rgb(cr, ACCENT)
+            cr.stroke()
 
         # puntos cardinales
         cr.set_font_size(11)
@@ -124,11 +186,16 @@ class ElevationPlot(Gtk.DrawingArea):
         super().__init__()
         self.points = points
         self.item = item
+        self.now: float | None = None
         self.set_content_width(430)
         self.set_content_height(320)
         self.set_hexpand(False)
         self.set_halign(Gtk.Align.CENTER)
         self.set_draw_func(self._draw)
+
+    def set_now(self, now: float | None) -> None:
+        self.now = now
+        self.queue_draw()
 
     def _draw(self, _area, cr, width: int, height: int):
         if width <= 0 or height <= 0:
@@ -184,6 +251,34 @@ class ElevationPlot(Gtk.DrawingArea):
             cr.set_line_width(2.4)
             cr.set_line_cap(1)
             cr.stroke()
+
+        # marcador en vivo
+        if self.now is not None and self.item.aos <= self.now <= self.item.los:
+            current = sample_track(self.points, self.now)
+            if current is not None and current[2] is not None:
+                x = left + pw * (self.now - self.item.aos) / max(1.0, self.item.los - self.item.aos)
+                y = top + ph * (1.0 - min(90.0, max(0.0, current[2])) / 90.0)
+                cr.move_to(x, top)
+                cr.line_to(x, top + ph)
+                cr.set_source_rgba(*ACCENT, 0.75)
+                cr.set_line_width(1.4)
+                cr.stroke()
+                cr.arc(x, y, 10.0, 0, 2 * math.pi)
+                cr.set_source_rgba(*ACCENT, 0.25)
+                cr.fill()
+                cr.arc(x, y, 5.2, 0, 2 * math.pi)
+                _rgb(cr, (1.0, 1.0, 1.0))
+                cr.fill()
+                cr.set_line_width(1.6)
+                _rgb(cr, ACCENT)
+                cr.stroke()
+                cr.set_font_size(10)
+                cr.select_font_face("Sans")
+                label = "AHORA"
+                ext = cr.text_extents(label)
+                cr.move_to(min(width - ext.width - 6, x + 7), max(top + 12, y - 9))
+                _rgb(cr, (1.0, 1.0, 1.0))
+                cr.show_text(label)
 
         # marcas AOS / TCA / LOS
         for t, color, text in (
