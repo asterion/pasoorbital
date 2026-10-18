@@ -281,8 +281,28 @@ def api_geocode(query: dict) -> dict:
     return {"query": text, "results": results}
 
 
+def api_elevation(query: dict) -> dict:
+    try:
+        lat = float(query.get("lat", [""])[0])
+        lon = float(query.get("lon", [""])[0])
+    except (TypeError, ValueError) as exc:
+        raise ApiError("indica latitud y longitud válidas") from exc
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        raise ApiError("latitud o longitud fuera de rango")
+    value = GEOCODER.elevation(lat, lon)
+    if value is None:
+        raise ApiError("no se pudo obtener la altitud del terreno", 502)
+    return {
+        "lat": lat,
+        "lon": lon,
+        "alt_m": round(value, 1),
+        "source": "Open-Meteo · Copernicus DEM",
+        "approx": True,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PasoOrbital/1.0"
+    server_version = "PasoOrbital/1.3"
     protocol_version = "HTTP/1.1"
 
     # ------------------------------------------------------------- helpers
@@ -332,6 +352,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(api_catalog(query))
             elif path == "/api/geocode":
                 self._json(api_geocode(query))
+            elif path == "/api/elevation":
+                self._json(api_elevation(query))
             elif path.startswith("/api/"):
                 self._error("ruta desconocida", 404)
             else:

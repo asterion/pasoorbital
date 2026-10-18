@@ -36,6 +36,7 @@ const state = {
     lat: null,
     lon: null,
     alt: 0,
+    altSource: "manual",
     label: "",
     days: 2,
     minEl: 5,
@@ -221,6 +222,7 @@ function fillForm() {
   $("#only-freq").checked = !!state.cfg.onlyFreq;
   $("#utc").checked = state.utc;
   updateLocLabel();
+  updateAltHint();
   updateTzChip();
 }
 
@@ -257,6 +259,13 @@ function bindEvents() {
     }
   });
   $("#geo-btn").addEventListener("click", useMyLocation);
+  $("#alt-btn").addEventListener("click", autoElevation);
+  $("#alt").addEventListener("input", () => {
+    state.cfg.alt = Number.parseFloat($("#alt").value) || 0;
+    state.cfg.altSource = "manual";
+    saveCfg();
+    updateAltHint();
+  });
   $("#calc").addEventListener("click", calculate);
   $("#refresh-tle").addEventListener("click", () => loadCatalog(true));
   $("#filter").addEventListener("input", () => {
@@ -402,9 +411,10 @@ async function geocode() {
       coords.className = "geo-coords";
       coords.textContent = `${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}`;
       li.append(label, coords);
-      const choose = () => {
+      const choose = async () => {
         setLocation(result.lat, result.lon, result.name);
         list.hidden = true;
+        await fillElevation(result.lat, result.lon);
         calculate();
       };
       li.addEventListener("click", choose);
@@ -423,10 +433,65 @@ function setLocation(lat, lon, label) {
   state.cfg.lat = Number(lat);
   state.cfg.lon = Number(lon);
   state.cfg.label = label || "";
+  state.cfg.altSource = "manual";
   $("#lat").value = state.cfg.lat.toFixed(4);
   $("#lon").value = state.cfg.lon.toFixed(4);
   saveCfg();
   updateLocLabel();
+  updateAltHint();
+}
+
+function updateAltHint(text) {
+  const el = $("#alt-hint");
+  if (!el) return;
+  if (text) {
+    el.textContent = text;
+    return;
+  }
+  el.textContent =
+    state.cfg.altSource === "open-meteo"
+      ? `Altitud del terreno: ${state.cfg.alt} m (Open-Meteo). Si estás en un piso alto, suma la altura del edificio.`
+      : "La altitud es la del terreno. Si estás en un piso alto, suma la altura del edificio.";
+}
+
+async function fillElevation(lat, lon, notify = false) {
+  try {
+    const data = await api(
+      `/api/elevation?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+    );
+    const alt = Number(data.alt_m);
+    if (!Number.isFinite(alt)) throw new Error("sin altitud");
+    state.cfg.alt = Math.round(alt);
+    state.cfg.altSource = "open-meteo";
+    $("#alt").value = state.cfg.alt;
+    saveCfg();
+    updateAltHint(
+      `Altitud del terreno: ${state.cfg.alt} m (${data.source || "Open-Meteo"}). Si estás en un piso alto, suma la altura del edificio.`
+    );
+    if (notify) toast(`Altitud del terreno: ${state.cfg.alt} m`);
+    return true;
+  } catch (err) {
+    updateAltHint("No se pudo obtener la altitud del terreno; ajústala a mano.");
+    if (notify) toast("No se pudo obtener la altitud; ajústala a mano.", true);
+    return false;
+  }
+}
+
+async function autoElevation() {
+  const lat = Number.parseFloat($("#lat").value);
+  const lon = Number.parseFloat($("#lon").value);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    toast("Primero indica latitud y longitud.", true);
+    return;
+  }
+  const changed = state.cfg.lat !== lat || state.cfg.lon !== lon;
+  state.cfg.lat = lat;
+  state.cfg.lon = lon;
+  if (changed) state.cfg.label = "";
+  saveCfg();
+  updateLocLabel();
+  await fillElevation(lat, lon, true);
+  calculate();
 }
 
 function useMyLocation() {
@@ -436,8 +501,9 @@ function useMyLocation() {
   }
   toast("Obteniendo tu posición…");
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+    async (pos) => {
       setLocation(pos.coords.latitude, pos.coords.longitude, "Mi ubicación");
+      await fillElevation(pos.coords.latitude, pos.coords.longitude);
       calculate();
     },
     () => toast("No se pudo obtener la posición. Revisa los permisos.", true),

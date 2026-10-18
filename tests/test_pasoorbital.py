@@ -8,10 +8,13 @@ Ejecutar con::
 from __future__ import annotations
 
 import math
+import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
+from unittest import mock
 
-from pasoorbital import freqs, passes, tle
+from pasoorbital import freqs, geo, passes, tle
 
 ISS_L1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  30777-3 0  9993"
 ISS_L2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.50377579440000"
@@ -138,6 +141,46 @@ class TestPasses(unittest.TestCase):
     def test_geostacionario_sin_pasos(self):
         goes = tle.parse_tle(f"GOES 18\n{GOES_L1}\n{GOES_L2}\n")[0]["satrec"]
         self.assertEqual(passes.find_passes(goes, self.obs, T0, T0 + DAY, 5.0, 10.0), [])
+
+
+class _FakeResponse:
+    def __init__(self, payload: bytes):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return self.payload
+
+
+class TestElevation(unittest.TestCase):
+    def test_elevation_cached(self):
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch(
+                "pasoorbital.geo.urllib.request.urlopen",
+                return_value=_FakeResponse(b'{"elevation":[538.0]}'),
+            ) as fake:
+                g = geo.Geocoder(td)
+                self.assertAlmostEqual(g.elevation(-33.4489, -70.6693), 538.0)
+                self.assertAlmostEqual(g.elevation(-33.4489, -70.6693), 538.0)
+                self.assertEqual(fake.call_count, 1)
+            self.assertTrue((Path(td) / "cache" / "elevation.json").exists())
+
+    def test_elevation_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch(
+                "pasoorbital.geo.urllib.request.urlopen",
+                side_effect=urllib.error.URLError("sin red"),
+            ):
+                self.assertIsNone(geo.Geocoder(td).elevation(0.0, 0.0))
+
+    def test_elevation_invalid_coords(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertIsNone(geo.Geocoder(td).elevation(999.0, 0.0))
 
 
 class TestFrequencies(unittest.TestCase):

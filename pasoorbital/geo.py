@@ -15,33 +15,88 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-USER_AGENT = "satelites-escucha/1.0 (herramienta local de prediccion de pasos)"
+USER_AGENT = "pasoorbital/1.3 (herramienta local de prediccion de pasos)"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 PHOTON = "https://photon.komoot.io/api/"
+ELEVATION = "https://api.open-meteo.com/v1/elevation"
 CACHE_TTL_S = 30 * 86400
+ELEVATION_TTL_S = 365 * 86400
 
 
 class Geocoder:
     def __init__(self, data_dir: str | Path):
         self.path = Path(data_dir) / "cache" / "geocode.json"
+        self.elev_path = Path(data_dir) / "cache" / "elevation.json"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._last_request = 0.0
-        self._cache = self._read_cache()
+        self._cache = self._read_json(self.path)
+        self._elev_cache = self._read_json(self.elev_path)
 
-    def _read_cache(self) -> dict:
+    def _read_json(self, path: Path) -> dict:
         try:
-            return json.loads(self.path.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
 
-    def _save_cache(self) -> None:
+    def _write_json(self, path: Path, data: dict) -> None:
         try:
-            tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(self._cache, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(self.path)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(path)
         except OSError:
             pass
+
+    def _read_cache(self) -> dict:
+        return self._read_json(self.path)
+
+    def _save_cache(self) -> None:
+        self._write_json(self.path, self._cache)
+
+    def _save_elev_cache(self) -> None:
+        self._write_json(self.elev_path, self._elev_cache)
+
+    # ------------------------------------------------------------------
+    def elevation(self, lat: float, lon: float) -> float | None:
+        """Altitud del terreno (DEM de Open-Meteo) para unas coordenadas.
+
+        Devuelve metros sobre el nivel del mar, o ``None`` si no se pudo
+        consultar.  El resultado se cachea porque el terreno no cambia.
+        """
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except (TypeError, ValueError):
+            return None
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            return None
+
+        key = f"{lat:.4f},{lon:.4f}"
+        entry = self._elev_cache.get(key)
+        if entry and time.time() - entry.get("ts", 0) < ELEVATION_TTL_S:
+            return entry.get("m")
+
+        params = urllib.parse.urlencode(
+            {"latitude": f"{lat:.6f}", "longitude": f"{lon:.6f}"}
+        )
+        req = urllib.request.Request(
+            f"{ELEVATION}?{params}", headers={"User-Agent": USER_AGENT}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            values = data.get("elevation")
+            if not isinstance(values, list) or not values:
+                return None
+            value = float(values[0])
+        except Exception:
+            return None
+        if value != value or not (-500.0 <= value <= 9000.0):
+            return None
+
+        self._elev_cache[key] = {"ts": time.time(), "m": value}
+        self._save_elev_cache()
+        return value
 
     def _throttle(self) -> None:
         # Nominatim pide como máximo 1 petición por segundo.

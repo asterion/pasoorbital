@@ -2,7 +2,7 @@
 
 ## Versiones soportadas
 
-La rama principal y la última versión publicada (1.2.x) reciben correcciones
+La rama principal y la última versión publicada (1.3.x) reciben correcciones
 de seguridad.
 
 ## Cómo reportar
@@ -17,7 +17,7 @@ propuesta de solución. Intentaremos responder en un plazo de 72 horas.
 ## Alcance
 
 - La aplicación no tiene cuentas, telemetría ni servidor propio.
-- Las direcciones se envían a Nominatim para geocodificarlas; no se envían
-  coordenadas a otros servicios.
+- Las direcciones se envían a Nominatim para geocodificarlas; las coordenadas se
+  envían a Open-Meteo solo para calcular la altitud del terreno.
 - Los TLE se descargan de CelesTrak.
 - Las dependencias se declaran en `requirements.txt` y en el control del `.deb`.

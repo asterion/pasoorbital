@@ -22,6 +22,8 @@ TLE para poder predecir sin conexión.
 ## Qué incluye
 
 - **Ubicación** por dirección (Nominatim), por coordenadas o con el GPS del navegador.
+- **Altitud del terreno automática** al buscar una dirección o usar el GPS, con
+  Open-Meteo (DEM Copernicus); el edificio se ajusta a mano.
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
   (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
@@ -39,6 +41,9 @@ TLE para poder predecir sin conexión.
 
 Requisitos: Python 3.10 o superior y conexión a internet la primera vez
 (para descargar TLE y dependencias).
+
+**Privacidad:** las direcciones se envían a Nominatim y, al calcular la altitud,
+las coordenadas a Open-Meteo. No hay cuentas, telemetría ni servidor propio.
 
 ```bash
 cd satelites
@@ -75,7 +80,7 @@ navegador, empaquetada como `.deb`.
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.2.0-1_all.deb
+sudo apt install ./dist/pasoorbital_1.3.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -213,7 +218,7 @@ pasoorbital/
 │   ├── tle.py          descarga/caché de TLE de CelesTrak
 │   ├── passes.py       SGP4 + geometría topocéntrica + búsqueda de pasos
 │   ├── freqs.py        base de frecuencias de escucha
-│   ├── geo.py          geocodificación (Nominatim/Photon)
+│   ├── geo.py          geocodificación y altitud (Nominatim/Open-Meteo)
 │   └── cli.py          interfaz de terminal
 ├── static/             interfaz web (HTML, CSS, JS sin dependencias)
 ├── desktop/            aplicación GTK4/libadwaita y empaquetado .deb
@@ -250,6 +255,7 @@ Detalles en [AUTHORS.md](AUTHORS.md).
 - Propagación: [python-sgp4](https://github.com/brandon-rhodes/python-sgp4).
 - Direcciones: [OpenStreetMap](https://www.openstreetmap.org/) vía Nominatim y Photon.
 - Frecuencias: información pública de AMSAT, IARU y las misiones.
+- Altitud del terreno: [Open-Meteo](https://open-meteo.com/) (DEM Copernicus).
 
 Software libre bajo licencia MIT. Respeta las políticas de uso de CelesTrak y Nominatim.
 
