@@ -2,7 +2,7 @@
 
 > **Para retomar el proyecto sin perder contexto.**
 > Autores: Marcos Matamala Fernandez y DeepSeek Harness (deepseek-flash).
-> Última actualización: 17 de octubre de 2026 · Versión: 1.2 (escritorio GTK4)
+> Última actualización: 17 de octubre de 2026 · Versión: 1.3 (altitud automática)
 
 ---
 
@@ -43,6 +43,7 @@ Aplicación local (servidor Python + interfaz web) que calcula **qué satélites
 - [x] Tabla sin siglas: Aparece (con fecha «hoy», «mañana» o día de la semana), Duración en minutos, Altura, Dirección con nombre completo, Frecuencia y Desvío (sin columna LOS; se deduce de Aparece + Duración).
 - [x] CLI: `python -m pasoorbital.cli`.
 - [x] Aplicación de escritorio GTK4/libadwaita y paquete `.deb` (`desktop/`).
+- [x] Altitud del terreno automática con Open-Meteo al buscar dirección o usar GPS; caché y ajuste manual del edificio.
 
 ---
 
@@ -88,7 +89,7 @@ app.py (http.server, ThreadingHTTPServer)
    ├── pasoorbital/tle.py     → CelesTrak + caché en data/tle/
    ├── pasoorbital/passes.py  → SGP4 + geometría topocéntrica
    ├── pasoorbital/freqs.py   → base de frecuencias
-   ├── pasoorbital/geo.py     → Nominatim/Photon + caché
+   ├── pasoorbital/geo.py     → Nominatim/Photon + Open-Meteo + caché
    └── pasoorbital/cli.py     → interfaz de terminal
 ```
 
@@ -100,7 +101,7 @@ app.py (http.server, ThreadingHTTPServer)
 | `pasoorbital/tle.py` | Descarga y caché de TLE, parseo, época, inclinación, período, altura; `Catalogue.load()`. |
 | `pasoorbital/passes.py` | `Observer`, conversión TEME→ECEF, az/el/distancia/velocidad radial, `find_passes()`, `track()`, `look_at()`. |
 | `pasoorbital/freqs.py` | `CHANNELS` por NORAD, `NAME_RULES`, `FrequencyDB` (merge con `data/frequencies.json`). |
-| `pasoorbital/geo.py` | `Geocoder.search()`: Nominatim con respaldo Photon, caché de 30 días y límite de 1 req/s. |
+| `pasoorbital/geo.py` | `Geocoder.search()` (Nominatim/Photon, caché 30 días) y `Geocoder.elevation()` (Open-Meteo, caché 1 año). |
 | `pasoorbital/cli.py` | Tabla por terminal y salida JSON. |
 | `static/index.html` | Estructura, panel de ayuda, glosario, modales. |
 | `static/style.css` | Tema oscuro, layout responsive, estilos de ayuda. |
@@ -129,6 +130,7 @@ app.py (http.server, ThreadingHTTPServer)
 | GET | `/api/health` | — | `{ok, uptime_s}` |
 | GET | `/api/catalog` | `groups=a,b`, `refresh=1` | `{satellites[], groups[], now}` |
 | GET | `/api/geocode` | `q=dirección` | `{query, results[]}` |
+| GET | `/api/elevation` | `lat=…&lon=…` | `{lat, lon, alt_m, source, approx}` |
 | POST | `/api/passes` | `{lat, lon, alt_m, days, min_el, groups, start}` | `{passes[], meta}` |
 | POST | `/api/track` | `{norad, lat, lon, alt_m, aos, los}` | `{points{t,az,el,rng,rate}, channels[]}` |
 
@@ -322,7 +324,7 @@ node --check static/app.js
 Prueba manual mínima:
 
 1. `./run.sh` y abrir la URL.
-2. Geocodificar una dirección y calcular.
+2. Geocodificar una dirección: debe rellenar la altitud del terreno y calcular. Probar también el botón «Calcular altitud del terreno» con coordenadas manuales.
 3. Abrir un paso, revisar resumen, gráficos y comandos.
 4. Probar el glosario desde la cabecera y desde un «?».
 5. Exportar el `.ics` y comprobar que tiene eventos.
@@ -405,6 +407,7 @@ pasoorbital.example.com {
 | Oct 2026 | Corregido el comando de escucha LRPT de SatDump: el primer argumento es el pipeline (`meteor_m2-x_lrpt`), el segundo la carpeta de salida. |
 | Oct 2026 | Tabla: fechas relativas («hoy», «mañana», «Lunes 19 oct»), duración sin segundos y direcciones con nombre completo («Sur → Noreste»). |
 | Oct 2026 | Tabla simplificada: AOS pasa a «Aparece», se elimina la columna LOS (basta con Aparece + Duración) y el detalle usa «Punto más alto», «Termina» y «Dirección». |
+| Oct 2026 | Versión 1.3: altitud del terreno automática con Open-Meteo en web y escritorio, con caché y ajuste manual del edificio. |
 | Oct 2026 | Versión de escritorio GTK4/libadwaita y paquete `.deb` 1.2.0 (`desktop/`). |
 | Oct 2026 | Versión 1.1: guía «Cómo leer esta tabla», glosario contextual, cabeceras en lenguaje claro, resumen en lenguaje llano, pista de elevación mínima, ayuda UTC. |
 | Oct 2026 | Optimización: `look_at` escalar sin numpy, TCA por parábola (4,5 s → 1,2 s). |
@@ -451,14 +454,14 @@ PasoOrbital sin navegador ni servidor HTTP.
 | `desktop/pasoorbital_gui/format.py` | Fechas relativas, duración, resumen, comandos e ICS. |
 | `desktop/pasoorbital_gui/skyplot.py` | Gráfico polar con Cairo. |
 | `desktop/pasoorbital_gui/style.css` | Estilos sobre libadwaita. |
-| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.2.0-1_all.deb`. |
+| `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.3.0-1_all.deb`. |
 | `desktop/pasoorbital.desktop`, icono, metainfo y manpage | Integración con GNOME. |
 
 - **Dependencias del paquete:** `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`,
   `python3-numpy`, `python3-sgp4` (en Ubuntu, `universe`).
 - **Desarrollo:** `PYTHONPATH=.:desktop .venv-gui/bin/python -m pasoorbital_gui.app`.
 - **Datos:** configuración en `~/.config/pasoorbital/config.json`; TLE y caché de
-  direcciones en `~/.cache/pasoorbital/`.
+  direcciones y altitudes en `~/.cache/pasoorbital/`.
 - **Pruebas:** se validó la interfaz con `gtk4-broadwayd` y Chrome headless;
   no hay Xvfb en el entorno de desarrollo.
 - **Limitaciones:** sin geolocalización automática, sin glosario contextual en

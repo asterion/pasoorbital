@@ -39,6 +39,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.items: list[PassItem] = []
         self.filtered: list[PassItem] = []
         self._geo_results: list[dict] = []
+        self._elevation_token: tuple[float, float] | None = None
+        self._setting_alt = False
         self._detail_windows: list[Adw.Window] = []
         self.shown = 250
         self.elapsed = 0.0
@@ -116,6 +118,13 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.alt_row = Adw.SpinRow.new_with_range(-500.0, 9000.0, 10.0)
         self.alt_row.set_title("Altitud (m)")
         self.alt_row.set_digits(0)
+        self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
+        self.alt_btn = Gtk.Button(icon_name="find-location-symbolic")
+        self.alt_btn.set_tooltip_text("Calcular la altitud del terreno con Open-Meteo")
+        self.alt_btn.add_css_class("flat")
+        self.alt_btn.connect("clicked", lambda *_: self.auto_elevation())
+        self.alt_row.add_suffix(self.alt_btn)
+        self.alt_row.connect("notify::value", self._on_alt_changed)
         for row in (self.lat_row, self.lon_row, self.alt_row):
             location.add(row)
         page.add(location)
@@ -281,6 +290,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             "lat": self.lat_row.get_value(),
             "lon": self.lon_row.get_value(),
             "alt": self.alt_row.get_value(),
+            "alt_source": self.config.get("alt_source", "manual"),
             "days": DAYS[self.days_row.get_selected()],
             "min_el": MIN_EL[self.el_row.get_selected()],
             "groups": groups,
@@ -298,7 +308,13 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         cfg = self.config
         self.lat_row.set_value(float(cfg.get("lat") or 0.0))
         self.lon_row.set_value(float(cfg.get("lon") or 0.0))
+        self._setting_alt = True
         self.alt_row.set_value(float(cfg.get("alt") or 0.0))
+        self._setting_alt = False
+        if cfg.get("alt_source") == "open-meteo":
+            self.alt_row.set_subtitle("Terreno · Open-Meteo (suma el edificio a mano)")
+        else:
+            self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
 
         days = int(cfg.get("days", 2))
         self.days_row.set_selected(DAYS.index(days) if days in DAYS else 1)
@@ -796,7 +812,55 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.address_row.set_text(result["name"])
         self._has_location = True
         self._save_config()
-        self.calculate()
+        self.auto_elevation()
+
+    # ---------------------------------------------------------- altitud
+    def auto_elevation(self) -> None:
+        lat = float(self.lat_row.get_value())
+        lon = float(self.lon_row.get_value())
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            self._alert("Coordenadas no válidas", "Revisa la latitud y la longitud.")
+            return
+        self._has_location = True
+        self._elevation_token = (round(lat, 4), round(lon, 4))
+        self.status.set_text("Buscando la altitud del terreno…")
+        self._run_bg(
+            lambda: self.data.geocoder.elevation(lat, lon), self._on_elevation
+        )
+
+    def _on_alt_changed(self, *_args) -> None:
+        if self._setting_alt:
+            return
+        self.config["alt_source"] = "manual"
+        self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
+        self._save_config()
+
+    def _on_elevation(self, value: object) -> None:
+        lat = round(float(self.lat_row.get_value()), 4)
+        lon = round(float(self.lon_row.get_value()), 4)
+        if self._elevation_token != (lat, lon):
+            return
+        self.status.set_text("")
+        alt = None
+        try:
+            if value is not None:
+                alt = float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            alt = None
+        if alt is not None and -500.0 <= alt <= 9000.0:
+            meters = int(round(alt))
+            self._setting_alt = True
+            self.alt_row.set_value(float(meters))
+            self._setting_alt = False
+            self.config["alt"] = meters
+            self.config["alt_source"] = "open-meteo"
+            self.alt_row.set_subtitle("Terreno · Open-Meteo (suma el edificio a mano)")
+        else:
+            self.config["alt_source"] = "manual"
+            self.alt_row.set_subtitle("Ajusta la altitud a mano")
+        self._save_config()
+        if self._has_location:
+            self.calculate()
 
     # ================================================================ varios
     def refresh_tle(self) -> None:

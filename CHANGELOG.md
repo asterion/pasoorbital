@@ -3,6 +3,22 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.3.0] - 2026-10-17
+
+### Añadido
+
+- **Altitud del terreno automática** al buscar una dirección o usar el GPS, con
+  Open-Meteo (DEM Copernicus).
+- Botón «Calcular altitud del terreno» para coordenadas introducidas a mano.
+- Caché de altitudes y aviso para sumar la altura del edificio.
+- Nuevo endpoint `GET /api/elevation?lat=…&lon=…`.
+
+### Cambiado
+
+- La app de escritorio y la web rellenan la altitud antes de calcular los pasos.
+- Documentación de privacidad: las coordenadas se envían a Open-Meteo solo para
+  consultar la altitud.
+
 ## [1.2.0] - 2026-10-17
 
 ### Añadido

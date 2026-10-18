@@ -20,12 +20,12 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.2.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.3.0-1_all.deb`.
 
 ## Instalar
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.2.0-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.3.0-1_all.deb
 ```
 
 Si `python3-sgp4` no está disponible, habilita `universe`:
@@ -59,6 +59,9 @@ PYTHONPATH=.:desktop .venv-gui/bin/python -m pasoorbital_gui.app
   el descrito en el README principal).
 
 ## Notas
+
+- Al buscar una dirección, la altitud del terreno se consulta en Open-Meteo
+  (DEM Copernicus). Si estás en un piso alto, suma la altura del edificio a mano.
 
 - La primera ejecución descarga los TLE de CelesTrak; después los cachea 6 h.
 - La geocodificación usa Nominatim con caché de 30 días.
