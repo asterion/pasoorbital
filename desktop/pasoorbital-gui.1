@@ -1,0 +1,27 @@
+.TH PASOORBITAL-GUI 1 "17 de octubre de 2026" "PasoOrbital 1.2.0" "Manual del usuario"
+.SH NOMBRE
+pasoorbital-gui \- predicción de pasos de satélites para escucha radio
+.SH SINOPSIS
+.B pasoorbital-gui
+.SH DESCRIPCIÓN
+.B PasoOrbital
+calcula qué satélites pasan por una ubicación, con hora de aparición,
+altura máxima, dirección, duración, frecuencia de escucha y efecto Doppler.
+.SH USO
+Introduce una dirección o unas coordenadas, elige los días y la elevación
+mínima y pulsa
+.BR Calcular .
+Pulsa una fila para ver el resumen del paso, las frecuencias, el Doppler,
+la trayectoria en el cielo y los comandos de escucha.
+.SH ARCHIVOS
+.TP
+.I ~/.config/pasoorbital/config.json
+Configuración de la última ubicación y filtros.
+.TP
+.I ~/.cache/pasoorbital/
+TLE descargados de CelesTrak y caché de geocodificación.
+.SH VÉASE TAMBIÉN
+La documentación completa del proyecto está en
+.IR /usr/share/doc/pasoorbital/README.md .
+.SH AUTOR
+PasoOrbital contributors.

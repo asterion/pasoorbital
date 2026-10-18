@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=PasoOrbital
+GenericName=Predicción de satélites
+Comment=Consulta los pasos de satélites y sus frecuencias de escucha
+Exec=pasoorbital-gui
+Icon=io.github.asterion.PasoOrbital
+Terminal=false
+Type=Application
+Categories=Science;Astronomy;
+Keywords=satellite;ISS;radio;SDR;TLE;passes;satélites;
+StartupNotify=true
+StartupWMClass=io.github.asterion.PasoOrbital

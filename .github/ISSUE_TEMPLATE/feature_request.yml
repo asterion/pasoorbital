@@ -1,0 +1,26 @@
+name: Proponer una mejora
+description: Una idea para PasoOrbital.
+title: "[Mejora]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qué problema resuelve
+      placeholder: "Cuando escucho… me gustaría…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas que has considerado
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional

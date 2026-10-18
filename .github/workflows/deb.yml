@@ -1,0 +1,39 @@
+name: deb
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir el .deb
+        run: |
+          chmod +x desktop/build_deb.sh
+          ./desktop/build_deb.sh
+      - name: Calcular suma SHA-256
+        run: |
+          cd desktop/dist
+          sha256sum *.deb > SHA256SUMS
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: pasoorbital-deb
+          path: |
+            desktop/dist/*.deb
+            desktop/dist/SHA256SUMS
+      - name: Publicar release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/*.deb
+            desktop/dist/SHA256SUMS
+          generate_release_notes: true
