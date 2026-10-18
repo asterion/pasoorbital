@@ -16,7 +16,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk  # noqa: E402
 
 from . import __version__, format as fmt  # noqa: E402
 from .data import PassItem, PasoOrbitalData  # noqa: E402
-from .skyplot import SkyPlot  # noqa: E402
+from .skyplot import ElevationPlot, SkyPlot  # noqa: E402
 
 DAYS = [1, 2, 3, 7]
 MIN_EL = [0, 5, 10, 15, 20, 30]
@@ -43,7 +43,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._setting_alt = False
         self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
         self._notified: set[tuple[int, int]] = set()
-        self._detail_windows: list[Adw.Window] = []
+        self._detail_dialog: Adw.Dialog | None = None
         self.shown = 250
         self.elapsed = 0.0
         self.busy = False
@@ -565,108 +565,207 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
     # ================================================================ detalle
     def show_detail(self, item: PassItem) -> None:
-        window = Adw.Window()
-        window.set_transient_for(self)
-        window.set_modal(True)
-        window.set_title(item.sat.name)
-        window.set_default_size(860, 820)
+        if self._detail_dialog is not None:
+            self._detail_dialog.close()
+
+        dialog = Adw.Dialog()
+        dialog.set_content_width(960)
+        dialog.set_content_height(600)
+        dialog.set_can_close(True)
 
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
         header.set_title_widget(
             Adw.WindowTitle(title=item.sat.name, subtitle=f"NORAD {item.sat.norad}")
         )
+
+        stack = Adw.ViewStack()
+        switcher = Adw.ViewSwitcher()
+        switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
+        switcher.set_stack(stack)
+        header.pack_start(switcher)
+
         toolbar.add_top_bar(header)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-        content.set_margin_top(20)
-        content.set_margin_bottom(26)
-        content.set_margin_start(24)
-        content.set_margin_end(24)
-        scroll.set_child(content)
-        toolbar.set_content(scroll)
-        window.set_content(toolbar)
+        stack.add_titled(self._detail_summary_page(item, stack), "summary", "Resumen")
+        stack.add_titled(self._detail_radio_page(item), "radio", "Radio")
+        stack.add_titled(self._detail_sky_page(item), "sky", "Cielo")
+        stack.set_visible_child_name("summary")
+        stack.set_vexpand(True)
+        toolbar.set_content(stack)
+
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        footer.set_margin_top(8)
+        footer.set_margin_bottom(8)
+        footer.set_margin_start(14)
+        footer.set_margin_end(14)
+        save = Gtk.Button(label="Guardar .ics")
+        save.add_css_class("flat")
+        save.connect("clicked", lambda *_: self._save_ics(item))
+        footer.append(save)
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        footer.append(spacer)
+        close = Gtk.Button(label="Cerrar")
+        close.connect("clicked", lambda *_: dialog.close())
+        footer.append(close)
+        toolbar.add_bottom_bar(footer)
+
+        dialog.set_child(toolbar)
+        self._detail_dialog = dialog
+        dialog.present(self)
+
+    def _detail_summary_page(self, item: PassItem, stack: Adw.ViewStack) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        box.set_margin_top(20)
+        box.set_margin_bottom(18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        box.set_vexpand(True)
+
+        now = time.time()
+        if item.aos <= now <= item.los:
+            state = "En curso"
+        elif now < item.aos:
+            minutes = max(1, round((item.aos - now) / 60.0))
+            state = (
+                f"Empieza en {minutes} min"
+                if minutes < 60
+                else f"Empieza {fmt.relative_day(item.aos)} a las {fmt.fmt_time(item.aos)}"
+            )
+        else:
+            state = "Pasado"
+        badge = Gtk.Label(label=state)
+        badge.set_xalign(0)
+        badge.set_halign(Gtk.Align.START)
+        badge.add_css_class("badge")
+        box.append(badge)
 
         summary = Gtk.Label()
         summary.set_markup(fmt.summary(item))
         summary.set_wrap(True)
         summary.set_xalign(0)
-        summary.set_use_markup(True)
         summary.add_css_class("summary")
-        content.append(summary)
+        box.append(summary)
 
-        content.append(self._heading("Horario"))
-        content.append(self._stats_grid(item))
+        box.append(self._heading("Horario"))
+        box.append(self._stats_grid(item))
 
-        content.append(self._heading("Frecuencias"))
-        if item.sat.channels:
-            for channel in item.sat.channels:
-                content.append(self._channel_card(channel))
-        else:
-            hint = Gtk.Label(label="Sin frecuencia registrada para este satélite.")
-            hint.set_xalign(0)
-            hint.set_wrap(True)
-            hint.add_css_class("dim-label")
-            content.append(hint)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        radio = Gtk.Button(label="Ver radio")
+        radio.add_css_class("flat")
+        radio.connect("clicked", lambda *_: stack.set_visible_child_name("radio"))
+        sky = Gtk.Button(label="Ver cielo")
+        sky.add_css_class("flat")
+        sky.connect("clicked", lambda *_: stack.set_visible_child_name("sky"))
+        actions.append(radio)
+        actions.append(sky)
+        box.append(actions)
 
-        if item.freq_hz:
-            content.append(self._heading("Doppler"))
-            content.append(self._doppler_grid(item))
-            note = Gtk.Label(
-                label=(
-                    "Sintoniza la frecuencia nominal y corrige a mano: al principio el satélite "
-                    "se acerca (frecuencia más alta) y al final se aleja (más baja)."
-                )
-            )
-            note.set_xalign(0)
-            note.set_wrap(True)
-            note.add_css_class("caption")
-            note.add_css_class("dim-label")
-            content.append(note)
-
-        content.append(self._heading("Trayectoria en el cielo"))
         hint = Gtk.Label(
-            label="El centro del círculo es justo encima de ti (cenit); el borde es el horizonte."
+            label="Usa las pestañas Radio y Cielo para frecuencias, comandos y trayectoria."
         )
         hint.set_xalign(0)
         hint.set_wrap(True)
         hint.add_css_class("caption")
         hint.add_css_class("dim-label")
-        content.append(hint)
-        content.append(SkyPlot(self.data.track(item), item))
+        box.append(hint)
+        return box
 
-        if item.sat.channels:
-            content.append(self._heading("Comandos de escucha"))
-            for channel in item.sat.channels:
-                content.append(self._command_card(channel, item))
+    def _detail_radio_page(self, item: PassItem) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(20)
+        box.set_margin_bottom(18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        box.set_vexpand(True)
+
+        channels = item.sat.channels
+        if not channels:
+            hint = Gtk.Label(label="Sin frecuencia de escucha registrada para este satélite.")
+            hint.set_xalign(0)
+            hint.set_wrap(True)
+            hint.add_css_class("dim-label")
+            box.append(hint)
+            return box
+
+        selector = None
+        if len(channels) > 1:
+            labels = [
+                f"{fmt.fmt_freq(ch.get('freq_hz'))} · {ch.get('mode') or 'sin modo'}"
+                for ch in channels
+            ]
+            selector = Adw.ComboRow(title="Frecuencia")
+            selector.set_model(Gtk.StringList.new(labels))
+            box.append(selector)
+
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.append(body)
+
+        def rebuild(*_args) -> None:
+            child = body.get_first_child()
+            while child is not None:
+                body.remove(child)
+                child = body.get_first_child()
+            index = selector.get_selected() if selector is not None else 0
+            channel = channels[index] if 0 <= index < len(channels) else channels[0]
+            body.append(self._channel_card(channel))
+            if channel.get("freq_hz"):
+                body.append(self._heading("Doppler"))
+                body.append(self._doppler_grid(item, channel["freq_hz"]))
+            body.append(self._heading("Comando de escucha"))
+            body.append(self._command_card(channel, item))
             note = Gtk.Label(
                 label=(
-                    "Requiere un RTL-SDR y sox; para APT/LRPT, además noaa-apt o SatDump. "
-                    "En SatDump el primer argumento es el pipeline y el segundo la carpeta de salida."
+                    "El Doppler se calcula sobre la frecuencia seleccionada. "
+                    "En SatDump, el primer argumento es el pipeline y el segundo la carpeta de salida."
                 )
             )
             note.set_xalign(0)
             note.set_wrap(True)
             note.add_css_class("caption")
             note.add_css_class("dim-label")
-            content.append(note)
+            body.append(note)
 
-        save = Gtk.Button(label="Guardar este paso en el calendario")
-        save.add_css_class("pill")
-        save.set_halign(Gtk.Align.START)
-        save.connect("clicked", lambda *_: self._save_ics(item))
-        content.append(save)
+        if selector is not None:
+            selector.connect("notify::selected", rebuild)
+        rebuild()
+        return box
 
-        self._detail_windows.append(window)
-        window.connect("close-request", self._on_detail_closed)
-        window.present()
+    def _detail_sky_page(self, item: PassItem) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(20)
+        box.set_margin_bottom(18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        box.set_vexpand(True)
 
-    def _on_detail_closed(self, window: Adw.Window) -> bool:
-        if window in self._detail_windows:
-            self._detail_windows.remove(window)
-        return False
+        hint = Gtk.Label(
+            label="El centro del círculo polar es el cenit; el borde es el horizonte."
+        )
+        hint.set_xalign(0)
+        hint.set_wrap(True)
+        hint.add_css_class("caption")
+        hint.add_css_class("dim-label")
+        box.append(hint)
+
+        points = self.data.track(item)
+        plots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        plots.set_halign(Gtk.Align.CENTER)
+        plots.set_valign(Gtk.Align.CENTER)
+        plots.set_vexpand(True)
+        plots.append(SkyPlot(points, item))
+        plots.append(ElevationPlot(points, item))
+        box.append(plots)
+
+        legend = Gtk.Label(
+            label="Verde: aparición · Ámbar: punto más alto · Rojo: salida"
+        )
+        legend.set_xalign(0)
+        legend.add_css_class("caption")
+        legend.add_css_class("dim-label")
+        box.append(legend)
+        return box
 
     def _heading(self, text: str) -> Gtk.Label:
         label = Gtk.Label(label=text)
@@ -749,12 +848,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             card.append(uplink)
         return card
 
-    def _doppler_grid(self, item: PassItem) -> Gtk.Widget:
+    def _doppler_grid(self, item: PassItem, freq_hz: int | None = None) -> Gtk.Widget:
         grid = Gtk.Grid()
         grid.set_column_spacing(10)
         grid.set_row_spacing(10)
         grid.set_column_homogeneous(True)
-        freq = item.freq_hz or 0
+        freq = freq_hz or item.freq_hz or 0
         entries = [
             ("Al aparecer (se acerca)", item.doppler_aos_hz),
             ("En el punto más alto", item.doppler_tca_hz),

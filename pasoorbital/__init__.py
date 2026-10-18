@@ -1,3 +1,3 @@
 """PasoOrbital: predicción de pasos de satélites para escucha radio."""
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
