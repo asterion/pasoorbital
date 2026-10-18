@@ -44,6 +44,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
         self._notified: set[tuple[int, int]] = set()
         self._detail_dialog: Adw.Dialog | None = None
+        self._next_item: PassItem | None = None
+        self._pending_pass_key: str | None = None
         self.shown = 250
         self.elapsed = 0.0
         self.busy = False
@@ -91,10 +93,36 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         paned.set_shrink_start_child(False)
 
         paned.set_start_child(self._build_sidebar())
+
+        self.notify_btn = Gtk.ToggleButton()
+        self.notify_btn.set_icon_name(
+            "preferences-system-notifications-symbolic"
+            if self.notify_row.get_active()
+            else "notifications-disabled-symbolic"
+        )
+        self.notify_btn.set_tooltip_text("Avisar 5 minutos antes")
+        self.notify_btn.add_css_class("flat")
+        self.notify_btn.set_active(self.notify_row.get_active())
+        self.notify_btn.connect("toggled", self._on_notify_btn_toggled)
+        header.pack_start(self.notify_btn)
+
         paned.set_end_child(self._build_content())
         toolbar.add_top_bar(header)
         toolbar.set_content(paned)
         self.set_content(toolbar)
+
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self._on_key_pressed)
+        self.add_controller(keys)
+
+    def _on_key_pressed(self, _controller, keyval, _keycode, state) -> bool:
+        if keyval == Gdk.KEY_f and state & Gdk.ModifierType.CONTROL_MASK:
+            self.search_entry.grab_focus()
+            return True
+        if keyval == Gdk.KEY_F5:
+            self.refresh_tle()
+            return True
+        return False
 
     def _build_sidebar(self) -> Gtk.Widget:
         page = Adw.PreferencesPage()
@@ -163,6 +191,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.notify_row.set_active(True)
         self.notify_row.set_tooltip_text("Notificación del escritorio al acercarse un paso")
         self.notify_row.connect("notify::active", lambda *_: self._save_config())
+        self.notify_row.connect("notify::active", self._on_notify_row_changed)
         prediction.add(self.notify_row)
 
         page.add(prediction)
@@ -242,6 +271,45 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.search_entry.connect("search-changed", lambda *_: self._render_list())
         head.append(self.search_entry)
         box.append(head)
+
+        self.next_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        self.next_card.add_css_class("next-pass")
+        self.next_card.set_margin_start(18)
+        self.next_card.set_margin_end(18)
+        self.next_card.set_margin_bottom(10)
+        self.next_card.set_visible(False)
+
+        next_left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        next_left.set_hexpand(True)
+        eyebrow = Gtk.Label(label="PRÓXIMO PASO")
+        eyebrow.set_xalign(0)
+        eyebrow.add_css_class("next-eyebrow")
+        self.next_title = Gtk.Label(label="")
+        self.next_title.set_xalign(0)
+        self.next_title.add_css_class("next-title")
+        self.next_detail = Gtk.Label(label="")
+        self.next_detail.set_xalign(0)
+        self.next_detail.set_wrap(True)
+        self.next_detail.add_css_class("caption")
+        self.next_detail.add_css_class("dim-label")
+        next_left.append(eyebrow)
+        next_left.append(self.next_title)
+        next_left.append(self.next_detail)
+
+        next_right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        next_right.set_valign(Gtk.Align.CENTER)
+        self.next_badge = Gtk.Label(label="")
+        self.next_badge.set_halign(Gtk.Align.END)
+        self.next_badge.add_css_class("badge")
+        self.next_btn = Gtk.Button(label="Ver detalle")
+        self.next_btn.add_css_class("flat")
+        self.next_btn.connect("clicked", self._open_next_detail)
+        next_right.append(self.next_badge)
+        next_right.append(self.next_btn)
+
+        self.next_card.append(next_left)
+        self.next_card.append(next_right)
+        box.append(self.next_card)
 
         self.stack = Gtk.Stack()
         self.stack.set_vexpand(True)
@@ -439,9 +507,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.empty_page.set_title("No hay pasos")
             self.empty_page.set_description("Prueba con más días o una elevación mínima menor.")
             self.meta_label.set_text("")
+            self.next_card.set_visible(False)
             self.stack.set_visible_child_name("empty")
             return
         self._render_list()
+        self._consume_pending_detail()
 
     # ================================================================ lista
     def _show_more(self) -> None:
@@ -461,6 +531,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.empty_page.set_title("Ningún paso coincide")
             self.empty_page.set_description("Prueba con otro nombre o borra el filtro.")
             self.meta_label.set_text(f"0 de {len(self.items)} pasos")
+            self.next_card.set_visible(False)
             self.stack.set_visible_child_name("empty")
             self.more_btn.set_visible(False)
             return
@@ -524,6 +595,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     def _tick(self) -> bool:
         """Resalta los pasos próximos y avisa 5 minutos antes."""
         now = time.time()
+        self._update_next_card(now)
         lead = 5 * 60.0
         soon: set[tuple[int, int]] = set()
         live: set[tuple[int, int]] = set()
@@ -545,6 +617,79 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
                 row.add_css_class("live")
         return True
 
+    @staticmethod
+    def _pass_detail_key(item: PassItem) -> str:
+        return f"{item.sat.norad}:{int(item.aos)}"
+
+    def _update_next_card(self, now: float) -> None:
+        candidates = [item for item in self.filtered if item.los >= now]
+        if not candidates:
+            self._next_item = None
+            self.next_card.set_visible(False)
+            return
+        live = [item for item in candidates if item.aos <= now <= item.los]
+        item = live[0] if live else min(candidates, key=lambda candidate: candidate.aos)
+        self._next_item = item
+
+        self.next_title.set_text(item.sat.name)
+        self.next_detail.set_text(
+            f"{fmt.fmt_time(item.aos)}–{fmt.fmt_time(item.los)} · "
+            f"{item.max_el:.0f}° · {fmt.fmt_freq(item.freq_hz)}"
+        )
+        if live:
+            self.next_badge.set_text("EN CURSO")
+        else:
+            minutes = max(1, round((item.aos - now) / 60.0))
+            if minutes < 60:
+                self.next_badge.set_text(f"EN {minutes} MIN")
+            else:
+                self.next_badge.set_text(
+                    f"{fmt.relative_day(item.aos).upper()} {fmt.fmt_time(item.aos)}"
+                )
+        self.next_card.set_visible(True)
+
+    def _open_next_detail(self, *_args) -> None:
+        if self._next_item is not None:
+            self.show_detail(self._next_item)
+
+    def show_pass_by_key(self, key: str) -> None:
+        for item in self.items:
+            if self._pass_detail_key(item) == key:
+                self._pending_pass_key = None
+                self.show_detail(item)
+                return
+        self._pending_pass_key = key
+
+    def _consume_pending_detail(self) -> None:
+        if not self._pending_pass_key:
+            return
+        key = self._pending_pass_key
+        for item in self.items:
+            if self._pass_detail_key(item) == key:
+                self._pending_pass_key = None
+                self.show_detail(item)
+                return
+
+    def _on_notify_btn_toggled(self, button: Gtk.ToggleButton) -> None:
+        if self.notify_row.get_active() != button.get_active():
+            self.notify_row.set_active(button.get_active())
+
+    def _on_notify_row_changed(self, row: Adw.SwitchRow, _pspec) -> None:
+        if not hasattr(self, "notify_btn"):
+            return
+        if self.notify_btn.get_active() != row.get_active():
+            self.notify_btn.set_active(row.get_active())
+        self.notify_btn.set_icon_name(
+            "preferences-system-notifications-symbolic"
+            if row.get_active()
+            else "notifications-disabled-symbolic"
+        )
+        self.notify_btn.set_tooltip_text(
+            "Avisar 5 minutos antes (activado)"
+            if row.get_active()
+            else "Avisar 5 minutos antes (desactivado)"
+        )
+
     def _send_notification(self, item: PassItem, now: float) -> None:
         minutes = max(1, round((item.aos - now) / 60.0))
         note = Gio.Notification.new(f"{item.sat.name} en {minutes} min")
@@ -558,7 +703,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         )
         note.set_icon(Gio.ThemedIcon.new("io.github.asterion.PasoOrbital"))
         note.set_priority(Gio.NotificationPriority.HIGH)
-        note.set_default_action("app.present")
+        key = self._pass_detail_key(item)
+        note.set_default_action_and_target("app.show-pass", GLib.Variant("s", key))
         self.app.send_notification(
             f"pass-{item.sat.norad}-{int(item.aos)}", note
         )

@@ -5,8 +5,9 @@
 Aplicación de escritorio en **GTK4 + libadwaita** que reutiliza el motor de
 PasoOrbital (`sgp4`, TLE de CelesTrak, frecuencias y geocodificación) sin depender
 del navegador. Resalta los pasos que aparecen en los próximos 5 minutos, avisa
-con una notificación del escritorio y abre el detalle en un modal con pestañas
-**Resumen**, **Radio** y **Cielo**, sin scroll.
+con una notificación del escritorio que abre el detalle del paso. La pantalla
+principal destaca el próximo paso y el detalle usa pestañas **Resumen**, **Radio**
+y **Cielo**, sin scroll.
 
 ## Requisitos
 
@@ -22,12 +23,12 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.5.1-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.6.0-1_all.deb`.
 
 ## Instalar
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.5.1-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.6.0-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -38,8 +39,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.5.1-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.5.1-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.5.1-1_all.deb
+> cp dist/pasoorbital_1.6.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.6.0-1_all.deb
 > ```
 
 

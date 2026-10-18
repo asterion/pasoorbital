@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pasoorbital"
-version = "1.5.1"
+version = "1.6.0"
 description = "Predicción de pasos de satélites para escucha radio"
 readme = "README.md"
 requires-python = ">=3.10"

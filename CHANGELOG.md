@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.6.0] - 2026-10-18
+
+### Añadido
+
+- **Tarjeta «Próximo paso»** en la pantalla principal, con cuenta atrás, datos
+  clave y botón para abrir el detalle.
+- **Campana de avisos** en la cabecera, siempre visible y sincronizada con el
+  interruptor lateral.
+- **La notificación abre el detalle del paso** concreto, no solo la ventana
+  principal.
+- Atajos **Ctrl+F** para buscar y **F5** para actualizar TLE.
+
 ## [1.5.1] - 2026-10-18
 
 ### Corregido

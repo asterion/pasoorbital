@@ -28,6 +28,8 @@ TLE para poder predecir sin conexión.
   próxima o en curso (app GNOME).
 - **Detalle modal con pestañas** Resumen, Radio y Cielo, sin scroll, con el
   resumen como pestaña principal.
+- **Próximo paso** destacado en la pantalla principal, con cuenta atrás y acceso
+  directo al detalle; campana de avisos siempre visible en la cabecera.
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
   (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
@@ -97,7 +99,7 @@ navegador, empaquetada como `.deb`.
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.5.1-1_all.deb
+sudo apt install ./dist/pasoorbital_1.6.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -109,8 +111,8 @@ pasoorbital-gui
 > desde allí:
 >
 > ```bash
-> cp desktop/dist/pasoorbital_1.5.1-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.5.1-1_all.deb
+> cp desktop/dist/pasoorbital_1.6.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.6.0-1_all.deb
 > ```
 
 Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` (1.6 o superior),
