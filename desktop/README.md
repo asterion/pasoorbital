@@ -2,6 +2,8 @@
 
 ![PasoOrbital para GNOME](../docs/desktop.png)
 
+![Cielo en vivo durante un paso](../docs/desktop-en-vivo.png)
+
 Aplicación de escritorio en **GTK4 + libadwaita** que reutiliza el motor de
 PasoOrbital (`sgp4`, TLE de CelesTrak, frecuencias y geocodificación) sin depender
 del navegador. Resalta los pasos que aparecen en los próximos 5 minutos, avisa
