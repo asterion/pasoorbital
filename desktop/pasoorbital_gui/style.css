@@ -54,3 +54,21 @@
   background-color: alpha(@accent_bg_color, 0.14);
   box-shadow: inset 4px 0 0 0 @accent_color;
 }
+
+.next-pass {
+  background-color: alpha(@accent_bg_color, 0.09);
+  border: 1px solid alpha(@accent_color, 0.28);
+  border-radius: 14px;
+  padding: 11px 16px;
+}
+
+.next-eyebrow {
+  font-size: 0.72em;
+  font-weight: 700;
+  color: @accent_color;
+}
+
+.next-title {
+  font-size: 1.12em;
+  font-weight: 700;
+}

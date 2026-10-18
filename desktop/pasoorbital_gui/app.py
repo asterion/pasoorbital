@@ -21,6 +21,7 @@ class PasoOrbitalApplication(Adw.Application):
     def __init__(self) -> None:
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.window: PasoOrbitalWindow | None = None
+        self._pending_pass_key: str | None = None
         self._css_loaded = False
         self._add_actions()
 
@@ -35,6 +36,10 @@ class PasoOrbitalApplication(Adw.Application):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", callback)
             self.add_action(action)
+
+        show_pass = Gio.SimpleAction.new("show-pass", GLib.VariantType.new("s"))
+        show_pass.connect("activate", self._on_show_pass)
+        self.add_action(show_pass)
 
         self.set_accels_for_action("app.quit", ["<Control>q"])
         self.set_accels_for_action("app.refresh", ["<Control>r"])
@@ -51,6 +56,15 @@ class PasoOrbitalApplication(Adw.Application):
         if self.window is not None:
             self.window.present()
             self.window.set_visible(True)
+
+    def _on_show_pass(self, _action: Gio.SimpleAction, parameter: GLib.Variant) -> None:
+        key = parameter.get_string()
+        if self.window is None:
+            self._pending_pass_key = key
+            return
+        self.window.present()
+        self.window.set_visible(True)
+        self.window.show_pass_by_key(key)
 
     def _on_quit(self, *_args) -> None:
         self.quit()
@@ -76,6 +90,9 @@ class PasoOrbitalApplication(Adw.Application):
             data = PasoOrbitalData(config_dir, cache_dir)
             self.window = PasoOrbitalWindow(self, data)
         self.window.present()
+        if self._pending_pass_key:
+            self.window.show_pass_by_key(self._pending_pass_key)
+            self._pending_pass_key = None
 
 
 def main(argv: list[str] | None = None) -> int:

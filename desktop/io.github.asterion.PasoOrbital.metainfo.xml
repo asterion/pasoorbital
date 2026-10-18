@@ -12,6 +12,7 @@
       <li>Altitud del terreno automática con Open-Meteo.</li>
       <li>Avisos de escritorio 5 minutos antes y resaltado del paso.</li>
       <li>Detalle modal con pestañas Resumen, Radio y Cielo, sin scroll.</li>
+      <li>Próximo paso destacado, campana de avisos y notificación que abre el detalle.</li>
       <li>Predicción de 1, 2, 3 o 7 días.</li>
       <li>Frecuencias de satélites meteorológicos, ISS y radioaficionados.</li>
       <li>Guía y glosario integrados para quien empieza.</li>
@@ -32,6 +33,11 @@
   <url type="homepage">https://github.com/asterion/pasoorbital</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.6.0" date="2026-10-18">
+      <description>
+        <p>Próximo paso destacado, campana de avisos siempre visible y notificación que abre el detalle del paso.</p>
+      </description>
+    </release>
     <release version="1.5.1" date="2026-10-18">
       <description>
         <p>Corregidos los iconos rotos de las pestañas del detalle.</p>
