@@ -302,7 +302,7 @@ def api_elevation(query: dict) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PasoOrbital/1.8"
+    server_version = "PasoOrbital/1.9"
     protocol_version = "HTTP/1.1"
 
     # ------------------------------------------------------------- helpers

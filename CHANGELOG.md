@@ -3,6 +3,15 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.9.0] - 2026-10-18
+
+### Añadido
+
+- **Cielo en vivo**: marcador del satélite, estela recorrida, línea «ahora» en el
+  gráfico de elevación y barra de progreso del paso.
+- Actualización cada segundo solo mientras el paso está en curso y el detalle
+  está abierto.
+
 ## [1.8.0] - 2026-10-18
 
 ### Añadido

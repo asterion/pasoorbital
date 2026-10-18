@@ -16,7 +16,8 @@ from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk  # noqa: 
 
 from . import __version__, format as fmt  # noqa: E402
 from .data import PassItem, PasoOrbitalData  # noqa: E402
-from .skyplot import ElevationPlot, SkyPlot  # noqa: E402
+from pasoorbital.passes import C_KM_S  # noqa: E402
+from .skyplot import ElevationPlot, SkyPlot, sample_track  # noqa: E402
 
 DAYS = [1, 2, 3, 7]
 MIN_EL = [0, 5, 10, 15, 20, 30]
@@ -49,6 +50,14 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._detail_dialog: Adw.Dialog | None = None
         self._next_item: PassItem | None = None
         self._pending_pass_key: str | None = None
+        self._live_item: PassItem | None = None
+        self._live_points: list[tuple[float, float, float, float, float]] = []
+        self._live_sky: SkyPlot | None = None
+        self._live_elev: ElevationPlot | None = None
+        self._live_badge: Gtk.Label | None = None
+        self._live_label: Gtk.Label | None = None
+        self._live_progress: Gtk.ProgressBar | None = None
+        self._live_source: int | None = None
         self.shown = 250
         self.elapsed = 0.0
         self.busy = False
@@ -734,6 +743,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
     # ================================================================ detalle
     def show_detail(self, item: PassItem) -> None:
+        self._stop_live()
         if self._detail_dialog is not None:
             self._detail_dialog.close()
 
@@ -786,6 +796,84 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         dialog.set_child(toolbar)
         self._detail_dialog = dialog
         dialog.present(self)
+        if self._live_item is not None:
+            self._live_source = GLib.timeout_add_seconds(1, self._live_tick)
+
+    def _stop_live(self) -> None:
+        source = self._live_source
+        self._live_source = None
+        if source is not None:
+            GLib.source_remove(source)
+        self._live_item = None
+        self._live_points = []
+        self._live_sky = None
+        self._live_elev = None
+        self._live_badge = None
+        self._live_label = None
+        self._live_progress = None
+
+    def _live_tick(self) -> bool:
+        item = self._live_item
+        sky = self._live_sky
+        elev = self._live_elev
+        badge = self._live_badge
+        label = self._live_label
+        progress = self._live_progress
+        dialog = self._detail_dialog
+        if (
+            item is None
+            or sky is None
+            or elev is None
+            or badge is None
+            or label is None
+            or progress is None
+            or dialog is None
+            or not dialog.get_mapped()
+        ):
+            self._live_source = None
+            self._stop_live()
+            return False
+
+        now = time.time()
+        if now < item.aos:
+            sky.set_now(None)
+            elev.set_now(None)
+            badge.set_text("PRÓXIMO")
+            minutes = max(1, round((item.aos - now) / 60.0))
+            label.set_text(
+                f"Empieza en {minutes} min · {fmt.fmt_time(item.aos)}"
+                if minutes < 60
+                else f"Empieza {fmt.relative_day(item.aos)} a las {fmt.fmt_time(item.aos)}"
+            )
+            progress.set_fraction(0.0)
+            return True
+        if now > item.los:
+            sky.set_now(None)
+            elev.set_now(None)
+            badge.set_text("TERMINADO")
+            label.set_text("El paso ya terminó.")
+            progress.set_fraction(1.0)
+            self._live_source = None
+            return False
+
+        sky.set_now(now)
+        elev.set_now(now)
+        current = sample_track(self._live_points, now)
+        if current is None:
+            return True
+        _t, az, el, rng, rate = current
+        fraction = min(1.0, max(0.0, (now - item.aos) / max(1.0, item.los - item.aos)))
+        doppler = ""
+        if item.freq_hz:
+            shift = -rate / C_KM_S * item.freq_hz
+            doppler = f" · {fmt.fmt_dop(shift)}"
+        badge.set_text("EN VIVO")
+        label.set_text(
+            f"az {az:.0f}° · el {el:.0f}° · {rng:.0f} km{doppler} · "
+            f"{fraction * 100:.0f}% del paso"
+        )
+        progress.set_fraction(fraction)
+        return True
 
     def _detail_summary_page(self, item: PassItem, stack: Adw.ViewStack) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
@@ -921,13 +1009,58 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         hint.add_css_class("dim-label")
         box.append(hint)
 
+        now = time.time()
+        live_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        live_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._live_badge = Gtk.Label(label="—")
+        self._live_badge.set_xalign(0)
+        self._live_badge.set_halign(Gtk.Align.START)
+        self._live_badge.add_css_class("badge")
+        self._live_label = Gtk.Label(label="")
+        self._live_label.set_xalign(0)
+        self._live_label.set_wrap(True)
+        self._live_label.set_hexpand(True)
+        self._live_label.add_css_class("caption")
+        self._live_label.add_css_class("dim-label")
+        live_top.append(self._live_badge)
+        live_top.append(self._live_label)
+        self._live_progress = Gtk.ProgressBar()
+        self._live_progress.set_show_text(False)
+        live_box.append(live_top)
+        live_box.append(self._live_progress)
+        box.append(live_box)
+
         points = self.data.track(item)
+        self._live_points = points
+        self._live_item = item
+        self._live_sky = SkyPlot(points, item)
+        self._live_elev = ElevationPlot(points, item)
+        if item.aos <= now <= item.los:
+            self._live_badge.set_text("EN VIVO")
+            self._live_label.set_text("Actualizando posición…")
+            self._live_progress.set_fraction(
+                min(1.0, max(0.0, (now - item.aos) / max(1.0, item.los - item.aos)))
+            )
+        elif now < item.aos:
+            self._live_badge.set_text("PRÓXIMO")
+            minutes = max(1, round((item.aos - now) / 60.0))
+            self._live_label.set_text(
+                f"Empieza en {minutes} min · {fmt.fmt_time(item.aos)}"
+                if minutes < 60
+                else f"Empieza {fmt.relative_day(item.aos)} a las {fmt.fmt_time(item.aos)}"
+            )
+            self._live_progress.set_fraction(0.0)
+        else:
+            self._live_badge.set_text("TERMINADO")
+            self._live_label.set_text("El paso ya terminó.")
+            self._live_progress.set_fraction(1.0)
+
         plots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
         plots.set_halign(Gtk.Align.CENTER)
         plots.set_valign(Gtk.Align.CENTER)
         plots.set_vexpand(True)
-        plots.append(SkyPlot(points, item))
-        plots.append(ElevationPlot(points, item))
+        plots.append(self._live_sky)
+        plots.append(self._live_elev)
         box.append(plots)
 
         legend = Gtk.Label(

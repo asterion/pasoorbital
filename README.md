@@ -32,6 +32,7 @@ TLE para poder predecir sin conexión.
   directo al detalle; campana de avisos siempre visible en la cabecera.
 - **Astro**, la mascota, aparece en la cabecera y en el estado vacío.
 - Comandos LRPT ajustados a **SatDump 1.2.2** (gain 30).
+- **Cielo en vivo**: marcador del satélite, estela recorrida, línea «ahora» y progreso del paso.
 - **Paquete RPM** instalable con `rpm -ivh` para Fedora, además del `.deb`.
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
@@ -105,7 +106,7 @@ navegador, empaquetada como `.deb` y `.rpm`.
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.8.0-1_all.deb
+sudo apt install ./dist/pasoorbital_1.9.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -117,8 +118,8 @@ pasoorbital-gui
 > desde allí:
 >
 > ```bash
-> cp desktop/dist/pasoorbital_1.8.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.8.0-1_all.deb
+> cp desktop/dist/pasoorbital_1.9.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
 > ```
 
 Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-gdkpixbuf-2.0`,
@@ -135,13 +136,13 @@ El RPM es un archivo local: no usa repositorio ni `dnf`. Se instala con `rpm`.
 Está construido para Fedora 41/42 (Python 3.13).
 
 ```bash
-sudo rpm -ivh desktop/dist/pasoorbital_1.8.0-1.noarch.rpm
+sudo rpm -ivh desktop/dist/pasoorbital_1.9.0-1.noarch.rpm
 ```
 
 Para actualizar:
 
 ```bash
-sudo rpm -Uvh desktop/dist/pasoorbital_1.8.0-1.noarch.rpm
+sudo rpm -Uvh desktop/dist/pasoorbital_1.9.0-1.noarch.rpm
 ```
 
 El paquete declara las dependencias de Fedora (`python3-gobject`, `gtk4`,
@@ -157,6 +158,8 @@ cd desktop
 El resultado queda en `desktop/dist/`.
 
 [Detalle de un paso en la app de escritorio](docs/desktop-detalle.png).
+
+![Cielo en vivo durante un paso](docs/desktop-en-vivo.png)
 
 ## Uso
 
