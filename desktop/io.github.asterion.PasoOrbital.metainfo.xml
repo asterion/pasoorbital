@@ -14,6 +14,7 @@
       <li>Detalle modal con pestañas Resumen, Radio y Cielo, sin scroll.</li>
       <li>Próximo paso destacado, campana de avisos y notificación que abre el detalle.</li>
       <li>Astro en la cabecera y en el estado vacío.</li>
+      <li>Paquete RPM instalable con rpm para Fedora, además del .deb.</li>
       <li>Predicción de 1, 2, 3 o 7 días.</li>
       <li>Frecuencias de satélites meteorológicos, ISS y radioaficionados.</li>
       <li>Guía y glosario integrados para quien empieza.</li>
@@ -34,6 +35,11 @@
   <url type="homepage">https://github.com/asterion/pasoorbital</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.8.0" date="2026-10-18">
+      <description>
+        <p>Paquete RPM instalable con rpm para Fedora, además del .deb.</p>
+      </description>
+    </release>
     <release version="1.7.0" date="2026-10-18">
       <description>
         <p>Astro en la interfaz y comandos LRPT ajustados a SatDump 1.2.2.</p>

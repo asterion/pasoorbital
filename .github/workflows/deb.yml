@@ -1,4 +1,4 @@
-name: deb
+name: packages
 
 on:
   push:
@@ -18,22 +18,37 @@ jobs:
         run: |
           chmod +x desktop/build_deb.sh
           ./desktop/build_deb.sh
-      - name: Calcular suma SHA-256
+      - name: Instalar herramientas RPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+      - name: Construir el .rpm
+        env:
+          PYTHON3_SITELIB: /usr/lib/python3.13/site-packages
+        run: |
+          chmod +x desktop/build_rpm.sh
+          ./desktop/build_rpm.sh
+      - name: Calcular sumas SHA-256
         run: |
           cd desktop/dist
           sha256sum *.deb > SHA256SUMS
+          sha256sum *.rpm > SHA256SUMS.rpm
       - name: Subir artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: pasoorbital-deb
+          name: pasoorbital-packages
           path: |
             desktop/dist/*.deb
+            desktop/dist/*.rpm
             desktop/dist/SHA256SUMS
+            desktop/dist/SHA256SUMS.rpm
       - name: Publicar release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             desktop/dist/*.deb
+            desktop/dist/*.rpm
             desktop/dist/SHA256SUMS
+            desktop/dist/SHA256SUMS.rpm
           generate_release_notes: true

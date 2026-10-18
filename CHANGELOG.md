@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.8.0] - 2026-10-18
+
+### Añadido
+
+- **Paquete RPM** instalable con `rpm -ivh` para Fedora, sin repositorio ni `dnf`.
+- Script `desktop/build_rpm.sh` y especificación `desktop/pasoorbital.spec`.
+- El workflow de release publica el `.rpm` junto al `.deb`.
+
+### Cambiado
+
+- `pyproject.toml` incluye los recursos de Astro en el paquete.
+
 ## [1.7.0] - 2026-10-18
 
 ### Añadido

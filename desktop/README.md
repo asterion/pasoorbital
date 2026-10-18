@@ -16,6 +16,7 @@ LRPT están ajustados a SatDump 1.2.2.
 - `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-gdkpixbuf-2.0`, `gir1.2-adw-1`,
   `python3-numpy`, `python3-sgp4` (este último está en el repositorio `universe`
   de Ubuntu).
+- Para el RPM: `rpmbuild` (`rpm-build` en Fedora).
 - Para construir el `.deb`: `dpkg-deb` (paquete `dpkg-dev`).
 
 ## Construir el paquete
@@ -25,12 +26,29 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.7.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.8.0-1_all.deb`.
 
-## Instalar
+## Construir e instalar el RPM
+
+Necesitas `rpmbuild` (paquete `rpm-build` en Fedora). El RPM es un archivo local,
+sin repositorio ni `dnf`, para Fedora 41/42 (Python 3.13).
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.7.0-1_all.deb
+cd desktop
+./build_rpm.sh
+sudo rpm -ivh dist/pasoorbital_1.8.0-1.noarch.rpm
+```
+
+Para actualizar:
+
+```bash
+sudo rpm -Uvh dist/pasoorbital_1.8.0-1.noarch.rpm
+```
+
+## Instalar el .deb
+
+```bash
+sudo apt install ./desktop/dist/pasoorbital_1.8.0-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -41,8 +59,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.7.0-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.7.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.7.0-1_all.deb
+> cp dist/pasoorbital_1.8.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.8.0-1_all.deb
 > ```
 
 

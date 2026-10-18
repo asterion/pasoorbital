@@ -32,6 +32,7 @@ TLE para poder predecir sin conexión.
   directo al detalle; campana de avisos siempre visible en la cabecera.
 - **Astro**, la mascota, aparece en la cabecera y en el estado vacío.
 - Comandos LRPT ajustados a **SatDump 1.2.2** (gain 30).
+- **Paquete RPM** instalable con `rpm -ivh` para Fedora, además del `.deb`.
 - **Predicción de pasos** para 1, 2, 3 o 7 días, con elevación mínima configurable.
 - **Catálogo** de estaciones espaciales, satélites meteorológicos, radioaficionados
   (AMSAT) y CubeSats, descargado de CelesTrak y cacheado 6 horas.
@@ -99,12 +100,12 @@ python app.py --no-browser         # no abrir el navegador
 ![PasoOrbital para GNOME](docs/desktop.png)
 
 Además de la web, PasoOrbital tiene una aplicación nativa **GTK4 + libadwaita**, sin
-navegador, empaquetada como `.deb`.
+navegador, empaquetada como `.deb` y `.rpm`.
 
 ```bash
 cd desktop
 ./build_deb.sh
-sudo apt install ./dist/pasoorbital_1.7.0-1_all.deb
+sudo apt install ./dist/pasoorbital_1.8.0-1_all.deb
 pasoorbital-gui
 ```
 
@@ -116,16 +117,44 @@ pasoorbital-gui
 > desde allí:
 >
 > ```bash
-> cp desktop/dist/pasoorbital_1.7.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.7.0-1_all.deb
+> cp desktop/dist/pasoorbital_1.8.0-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.8.0-1_all.deb
 > ```
 
-Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` (1.6 o superior),
-`python3-numpy` y `python3-sgp4` (en Ubuntu, este último está en `universe`).
+Depende de `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-gdkpixbuf-2.0`,
+`gir1.2-adw-1` (1.6 o superior), `python3-numpy` y `python3-sgp4` (en Ubuntu,
+este último está en `universe`).
 La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
 `~/.cache/pasoorbital/`. La app resalta los pasos que aparecen en los próximos
 5 minutos y, con «Avisar 5 min antes» activo, envía una notificación del
 escritorio.
+
+### Fedora / RPM
+
+El RPM es un archivo local: no usa repositorio ni `dnf`. Se instala con `rpm`.
+Está construido para Fedora 41/42 (Python 3.13).
+
+```bash
+sudo rpm -ivh desktop/dist/pasoorbital_1.8.0-1.noarch.rpm
+```
+
+Para actualizar:
+
+```bash
+sudo rpm -Uvh desktop/dist/pasoorbital_1.8.0-1.noarch.rpm
+```
+
+El paquete declara las dependencias de Fedora (`python3-gobject`, `gtk4`,
+`libadwaita`, `gdk-pixbuf2`, `python3-numpy`, `python3-sgp4`). Si faltan, `rpm`
+las mostrará; deben estar instaladas antes. Para construir el RPM en Fedora
+necesitas `rpm-build`:
+
+```bash
+cd desktop
+./build_rpm.sh
+```
+
+El resultado queda en `desktop/dist/`.
 
 [Detalle de un paso en la app de escritorio](docs/desktop-detalle.png).
 
