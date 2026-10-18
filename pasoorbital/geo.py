@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-USER_AGENT = "pasoorbital/1.5 (herramienta local de prediccion de pasos)"
+USER_AGENT = "pasoorbital/1.5.1 (herramienta local de prediccion de pasos)"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 PHOTON = "https://photon.komoot.io/api/"
 ELEVATION = "https://api.open-meteo.com/v1/elevation"

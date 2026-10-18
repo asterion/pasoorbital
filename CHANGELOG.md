@@ -3,6 +3,13 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.5.1] - 2026-10-18
+
+### Corregido
+
+- Los iconos de las pestañas **Resumen**, **Radio** y **Cielo** aparecían como
+  imágenes rotas. Ahora usan iconos simbólicos válidos de Adwaita.
+
 ## [1.5.0] - 2026-10-18
 
 ### Añadido

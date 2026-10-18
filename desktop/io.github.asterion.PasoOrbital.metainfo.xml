@@ -32,6 +32,11 @@
   <url type="homepage">https://github.com/asterion/pasoorbital</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.5.1" date="2026-10-18">
+      <description>
+        <p>Corregidos los iconos rotos de las pestañas del detalle.</p>
+      </description>
+    </release>
     <release version="1.5.0" date="2026-10-18">
       <description>
         <p>Detalle modal con pestañas Resumen, Radio y Cielo, sin scroll, y gráfico de elevación.</p>

@@ -22,12 +22,12 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.5.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.5.1-1_all.deb`.
 
 ## Instalar
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.5.0-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.5.1-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -38,8 +38,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.5.0-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.5.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.5.0-1_all.deb
+> cp dist/pasoorbital_1.5.1-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.5.1-1_all.deb
 > ```
 
 
