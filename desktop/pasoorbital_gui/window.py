@@ -587,9 +587,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         toolbar.add_top_bar(header)
 
-        stack.add_titled(self._detail_summary_page(item, stack), "summary", "Resumen")
-        stack.add_titled(self._detail_radio_page(item), "radio", "Radio")
-        stack.add_titled(self._detail_sky_page(item), "sky", "Cielo")
+        page = stack.add_titled(self._detail_summary_page(item, stack), "summary", "Resumen")
+        page.set_icon_name("view-list-symbolic")
+        page = stack.add_titled(self._detail_radio_page(item), "radio", "Radio")
+        page.set_icon_name("audio-headphones-symbolic")
+        page = stack.add_titled(self._detail_sky_page(item), "sky", "Cielo")
+        page.set_icon_name("applications-science-symbolic")
         stack.set_visible_child_name("summary")
         stack.set_vexpand(True)
         toolbar.set_content(stack)
