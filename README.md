@@ -379,4 +379,4 @@ Software libre bajo licencia MIT. Respeta las políticas de uso de CelesTrak y N
 
 MIT © 2026 Marcos Matamala Fernandez. Consulta [LICENSE](LICENSE) y [AUTHORS.md](AUTHORS.md).
 
-Documentación técnica y hoja de ruta: [DESARROLLO.md](DESARROLLO.md).
+Documentación y hoja de ruta: [DESARROLLO.md](DESARROLLO.md).
