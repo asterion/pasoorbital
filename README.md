@@ -66,7 +66,7 @@ Descarga el paquete desde la última release:
 
 - [Última release](https://github.com/asterion/pasoorbital/releases/latest)
 - [`.deb` para Debian/Ubuntu](https://github.com/asterion/pasoorbital/releases/download/v1.9.0/pasoorbital_1.9.0-1_all.deb)
-- [`.rpm` para Fedora 41/42](https://github.com/asterion/pasoorbital/releases/download/v1.9.0/pasoorbital-1.9.0-1.noarch.rpm)
+- [`.rpm` para Fedora](https://github.com/asterion/pasoorbital/releases/latest) (Fedora 41-44, sin depender de la versión de Python)
 
 ```bash
 # Debian / Ubuntu
@@ -74,12 +74,16 @@ sudo apt install ./pasoorbital_1.9.0-1_all.deb
 pasoorbital-gui
 
 # Fedora
-sudo rpm -ivh pasoorbital-1.9.0-1.noarch.rpm
+sudo rpm -ivh pasoorbital-1.9.0-2.noarch.rpm
 pasoorbital-gui
 ```
 
 El RPM se instala con `rpm`, sin repositorio ni `dnf`. Si faltan dependencias de
 Fedora, `rpm` las mostrará antes de instalar.
+
+El RPM es `noarch` y guarda los módulos en `/usr/lib/pasoorbital`, fuera de
+`site-packages`: funciona con Fedora 41-44 y con cualquier Python 3.10 o
+superior, sin recompilarlo para cada versión de Python.
 
 <details>
 <summary>Aviso al instalar un <code>.deb</code> local</summary>
@@ -96,7 +100,9 @@ sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
 
 Dependencias del escritorio: `python3-gi`, `gir1.2-gtk-4.0`,
 `gir1.2-gdkpixbuf-2.0`, `gir1.2-adw-1` (1.6 o superior), `python3-numpy` y
-`python3-sgp4`. En Ubuntu, `python3-sgp4` está en `universe`.
+`python3-sgp4`. En Ubuntu, `python3-sgp4` está en `universe`. En Fedora son
+`python3-gobject`, `gtk4`, `libadwaita`, `gdk-pixbuf2`, `python3-numpy` y
+`python3-sgp4`.
 
 La configuración se guarda en `~/.config/pasoorbital/` y los TLE y la caché en
 `~/.cache/pasoorbital/`.

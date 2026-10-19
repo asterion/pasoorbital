@@ -23,11 +23,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rpm
       - name: Construir el .rpm
-        env:
-          PYTHON3_SITELIB: /usr/lib/python3.13/site-packages
         run: |
           chmod +x desktop/build_rpm.sh
           ./desktop/build_rpm.sh
+      - name: Verificar que el .rpm no dependa de la versión de Python
+        run: |
+          FILES=$(rpm -qlp desktop/dist/*.rpm)
+          printf '%s\n' "$FILES"
+          if grep -qE '^/usr/lib/python3\.[0-9]+/' <<<"$FILES"; then
+            echo "::error::El RPM instala módulos en una ruta ligada a la versión de Python"
+            exit 1
+          fi
+          grep -q '^/usr/lib/pasoorbital/pasoorbital_gui/' <<<"$FILES"
       - name: Calcular sumas SHA-256
         run: |
           cd desktop/dist

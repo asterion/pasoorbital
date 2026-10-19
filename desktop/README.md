@@ -20,6 +20,8 @@ marcador del satélite, su estela y el progreso del paso.
   `python3-numpy`, `python3-sgp4` (este último está en el repositorio `universe`
   de Ubuntu).
 - Para el RPM: `rpmbuild` (`rpm-build` en Fedora).
+- En Fedora: `python3-gobject`, `gtk4`, `libadwaita` (1.6+), `gdk-pixbuf2`,
+  `python3-numpy` y `python3-sgp4`.
 - Para construir el `.deb`: `dpkg-deb` (paquete `dpkg-dev`).
 
 ## Construir el paquete
@@ -34,18 +36,20 @@ El paquete queda en `desktop/dist/pasoorbital_1.9.0-1_all.deb`.
 ## Construir e instalar el RPM
 
 Necesitas `rpmbuild` (paquete `rpm-build` en Fedora). El RPM es un archivo local,
-sin repositorio ni `dnf`, para Fedora 41/42 (Python 3.13).
+sin repositorio ni `dnf`, para Fedora 41 o superior. Los módulos se instalan en
+`/usr/lib/pasoorbital`, así que el mismo RPM funciona con Python 3.10-3.14 y no
+hay que reconstruirlo al actualizar Fedora.
 
 ```bash
 cd desktop
 ./build_rpm.sh
-sudo rpm -ivh dist/pasoorbital_1.9.0-1.noarch.rpm
+sudo rpm -ivh dist/pasoorbital-1.9.0-2.noarch.rpm
 ```
 
 Para actualizar:
 
 ```bash
-sudo rpm -Uvh dist/pasoorbital_1.9.0-1.noarch.rpm
+sudo rpm -Uvh dist/pasoorbital-1.9.0-2.noarch.rpm
 ```
 
 ## Instalar el .deb
