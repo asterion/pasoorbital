@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Corregido
+
+- El RPM instalaba los módulos en `/usr/lib/python3.13/site-packages`, una ruta
+  ligada a la versión de Python del equipo que lo construía. En Fedora 43/44
+  (Python 3.14) la app fallaba con `ModuleNotFoundError: No module named
+  'pasoorbital_gui'`. Ahora se instalan en `/usr/lib/pasoorbital`, que no
+  depende de la versión de Python, y los lanzadores añaden esa ruta a
+  `sys.path`. El RPM pasa a ser `1.9.0-2`.
+
 ## [1.9.0] - 2026-10-18
 
 ### Añadido

@@ -469,7 +469,7 @@ PasoOrbital sin navegador ni servidor HTTP.
 | `desktop/pasoorbital_gui/skyplot.py` | Gráfico polar con Cairo. |
 | `desktop/pasoorbital_gui/style.css` | Estilos sobre libadwaita. |
 | `desktop/build_deb.sh` | Genera `desktop/dist/pasoorbital_1.9.0-1_all.deb`. |
-| `desktop/build_rpm.sh` | Genera `desktop/dist/pasoorbital_1.9.0-1.noarch.rpm` con `rpmbuild`. |
+| `desktop/build_rpm.sh` | Genera `desktop/dist/pasoorbital-1.9.0-2.noarch.rpm` con `rpmbuild`. |
 | `desktop/pasoorbital.desktop`, icono, metainfo y manpage | Integración con GNOME. |
 
 - **Dependencias del paquete:** `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`,

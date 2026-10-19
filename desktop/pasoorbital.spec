@@ -1,12 +1,17 @@
 Name:           pasoorbital
 Version:        1.9.0
-Release:        1
+Release:        2
 Summary:        Predicción de pasos de satélites para escucha radio
 License:        MIT
 URL:            https://github.com/asterion/pasoorbital
 Source0:        pasoorbital-%{version}.tar.gz
 BuildArch:      noarch
 AutoReqProv:    no
+
+# Los módulos propios viven fuera de site-packages: el RPM es noarch y debe
+# funcionar con cualquier Python 3.10+ (Fedora 41-44), no solo con la versión
+# de Python del equipo donde se construyó.
+%global pasoorbital_libdir %{_prefix}/lib/pasoorbital
 
 Requires:       python3 >= 3.10
 Requires:       python3-gobject
@@ -33,20 +38,29 @@ python3 -m compileall -q pasoorbital desktop/pasoorbital_gui
 %install
 rm -rf %{buildroot}
 install -d %{buildroot}%{_bindir}
-install -d %{buildroot}%{python3_sitelib}
+install -d %{buildroot}%{pasoorbital_libdir}
 install -d %{buildroot}%{_datadir}/applications
 install -d %{buildroot}%{_datadir}/metainfo
 install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
 install -d %{buildroot}%{_mandir}/man1
 
-cp -a pasoorbital %{buildroot}%{python3_sitelib}/
-cp -a desktop/pasoorbital_gui %{buildroot}%{python3_sitelib}/
-find %{buildroot}%{python3_sitelib} -type d -name __pycache__ -prune -exec rm -rf {} +
-find %{buildroot}%{python3_sitelib} -name '*.pyc' -delete
+cp -a pasoorbital %{buildroot}%{pasoorbital_libdir}/
+cp -a desktop/pasoorbital_gui %{buildroot}%{pasoorbital_libdir}/
+find %{buildroot}%{pasoorbital_libdir} -type d -name __pycache__ -prune -exec rm -rf {} +
+find %{buildroot}%{pasoorbital_libdir} -name '*.pyc' -delete
+# Los ficheros fuente pueden llegar con permisos 600: deben ser legibles.
+chmod -R a+rX %{buildroot}%{pasoorbital_libdir}
 
 cat > %{buildroot}%{_bindir}/pasoorbital <<'EOF'
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import os
+import sys
+
+# Módulos propios en una ruta independiente de la versión de Python.
+_prefix = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.path.join(_prefix, "lib", "pasoorbital"))
+
 from pasoorbital.cli import main
 
 if __name__ == "__main__":
@@ -57,6 +71,13 @@ chmod 755 %{buildroot}%{_bindir}/pasoorbital
 cat > %{buildroot}%{_bindir}/pasoorbital-gui <<'EOF'
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import os
+import sys
+
+# Módulos propios en una ruta independiente de la versión de Python.
+_prefix = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.path.join(_prefix, "lib", "pasoorbital"))
+
 from pasoorbital_gui.app import main
 
 if __name__ == "__main__":
@@ -92,8 +113,9 @@ fi
 %files
 %{_bindir}/pasoorbital
 %{_bindir}/pasoorbital-gui
-%{python3_sitelib}/pasoorbital/
-%{python3_sitelib}/pasoorbital_gui/
+%dir %{pasoorbital_libdir}
+%{pasoorbital_libdir}/pasoorbital/
+%{pasoorbital_libdir}/pasoorbital_gui/
 %{_datadir}/applications/io.github.asterion.PasoOrbital.desktop
 %{_datadir}/metainfo/io.github.asterion.PasoOrbital.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/io.github.asterion.PasoOrbital.svg
@@ -102,6 +124,11 @@ fi
 %doc README.md AUTHORS.md
 
 %changelog
+* Mon Oct 19 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.0-2
+- Instalar los módulos en /usr/lib/pasoorbital, independiente de la versión
+  de Python, para que el RPM funcione también con Python 3.14 (Fedora 43/44).
+- Asegurar permisos de lectura de los módulos.
+
 * Sun Oct 18 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.0-1
 - Cielo en vivo con marcador, estela y progreso del paso.
 - Paquete RPM instalable con rpm.

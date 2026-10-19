@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Construye un RPM instalable (sin repositorio dnf) para Fedora.
 set -euo pipefail
+umask 022
 cd "$(dirname "$0")"
 
 SPEC="$PWD/pasoorbital.spec"
@@ -37,9 +38,6 @@ cp "$SPEC" "$TOP/SPECS/pasoorbital.spec"
 
 mkdir -p "$TOP/tmp" "$TOP/rpmdb"
 extra=(--define "_tmppath $TOP/tmp" --define "_dbpath $TOP/rpmdb")
-if [ -n "${PYTHON3_SITELIB:-}" ]; then
-    extra+=(--define "python3_sitelib $PYTHON3_SITELIB")
-fi
 
 TMPDIR="$TOP/tmp" "$RPMBUILD" -bb --define "_topdir $TOP" "${extra[@]}" "$TOP/SPECS/pasoorbital.spec"
 
@@ -48,6 +46,16 @@ if [ ! -f "$RPM" ]; then
     echo "No se generó el RPM esperado: $RPM" >&2
     exit 1
 fi
+
+# El RPM es noarch y no debe instalar módulos en una ruta atada a la versión
+# de Python del equipo que lo construye (p. ej. /usr/lib/python3.13/...).
+RPM_FILES=$(rpm -qlp "$RPM")
+if grep -qE '^/usr/lib/python3\.[0-9]+/' <<<"$RPM_FILES"; then
+    echo "El RPM instala módulos bajo /usr/lib/python3.X: no será portable." >&2
+    grep -E '^/usr/lib/python3\.[0-9]+/' <<<"$RPM_FILES" >&2
+    exit 1
+fi
+
 cp "$RPM" "$DIST/"
 echo
 echo "RPM generado: $DIST/pasoorbital-$VERSION-$RELEASE.noarch.rpm"
