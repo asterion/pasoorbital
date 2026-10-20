@@ -3,6 +3,19 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.9.1] - 2026-10-19
+
+### Corregido
+
+- Los filtros de la lista son reactivos: «Solo con frecuencia conocida» se aplica
+  al instante y los cambios de días, elevación mínima y grupos actualizan y
+  recalculan la lista automáticamente.
+- Las notificaciones y el próximo paso respetan los filtros activos.
+
+### Empaquetado
+
+- Nuevos paquetes `.deb` y `.rpm` con la versión 1.9.1.
+
 ## [Sin publicar]
 
 ### Corregido
