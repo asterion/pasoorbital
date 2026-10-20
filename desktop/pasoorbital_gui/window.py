@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk  # noqa: E402
 
 from . import __version__, format as fmt  # noqa: E402
-from .data import PassItem, PasoOrbitalData  # noqa: E402
+from .data import PassItem, PasoOrbitalData, filter_passes  # noqa: E402
 from pasoorbital.passes import C_KM_S  # noqa: E402
 from .skyplot import ElevationPlot, SkyPlot, sample_track  # noqa: E402
 
@@ -62,6 +62,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.elapsed = 0.0
         self.busy = False
         self._has_location = self.config.get("lat") is not None and self.config.get("lon") is not None
+        self._calc_timer: int | None = None
+        self._calc_pending = False
 
         self.set_default_size(1280, 840)
         self.set_size_request(980, 640)
@@ -69,6 +71,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         self._build_ui()
         self._apply_config()
+        self._connect_filter_signals()
         GLib.idle_add(self._initial_load)
         GLib.timeout_add_seconds(10, self._tick)
 
@@ -443,6 +446,63 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     def _groups(self) -> list[str]:
         return [group_id for group_id, switch in self.switches.items() if switch.get_active()]
 
+    # ---------------------------------------------------------- reactividad
+    def _connect_filter_signals(self) -> None:
+        self.only_freq_check.connect("toggled", self._on_only_freq_changed)
+        for switch in self.switches.values():
+            switch.connect("toggled", self._on_filter_changed)
+        self.days_row.connect("notify::selected", self._on_filter_changed)
+        self.el_row.connect("notify::selected", self._on_filter_changed)
+
+    def _on_only_freq_changed(self, _button: Gtk.CheckButton) -> None:
+        self._save_config()
+        if self.items:
+            self._render_list()
+
+    def _on_filter_changed(self, *_args) -> None:
+        self._save_config()
+        if not self._groups():
+            self._show_no_groups()
+            return
+        if self.items:
+            self._render_list()
+        self._schedule_recalculate()
+
+    def _schedule_recalculate(self) -> None:
+        if not self._has_location:
+            return
+        if self._calc_timer is not None:
+            GLib.source_remove(self._calc_timer)
+        self._calc_timer = GLib.timeout_add(300, self._run_scheduled_calc)
+
+    def _run_scheduled_calc(self) -> bool:
+        self._calc_timer = None
+        if self.busy:
+            self._calc_pending = True
+            return False
+        self.calculate()
+        return False
+
+    def _maybe_run_pending(self) -> None:
+        if not self._calc_pending:
+            return
+        self._calc_pending = False
+        self._schedule_recalculate()
+
+    def _show_no_groups(self) -> None:
+        if self._calc_timer is not None:
+            GLib.source_remove(self._calc_timer)
+            self._calc_timer = None
+        self._calc_pending = False
+        self.items = []
+        self.filtered = []
+        self.shown = 250
+        self.empty_page.set_title("Sin grupos")
+        self.empty_page.set_description("Selecciona al menos un grupo de satélites.")
+        self.meta_label.set_text("")
+        self.next_card.set_visible(False)
+        self.stack.set_visible_child_name("empty")
+
     # ============================================================ threading
     def _run_bg(self, fn: Callable[[], object], on_done: Callable[[object], object]) -> None:
         def worker() -> None:
@@ -460,6 +520,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._update_tle_status()
         self.stack.set_visible_child_name("results" if self.items else "empty")
         self._alert("No se pudo completar", message)
+        self._maybe_run_pending()
 
     def _set_busy(self, busy: bool) -> None:
         self.busy = busy
@@ -497,6 +558,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
     # =============================================================== cálculo
     def calculate(self) -> None:
+        if self._calc_timer is not None:
+            GLib.source_remove(self._calc_timer)
+            self._calc_timer = None
         if self.busy:
             return
         lat = self.lat_row.get_value()
@@ -515,7 +579,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         days = DAYS[self.days_row.get_selected()]
         min_el = MIN_EL[self.el_row.get_selected()]
-        only_freq = self.only_freq_check.get_active()
         self._has_location = True
         self._save_config()
         self._set_busy(True)
@@ -523,7 +586,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         def work():
             self.data.load_catalog(groups)
-            return self.data.find_passes(lat, lon, alt, days, min_el, groups, only_freq)
+            # Se calculan todos los pasos; «Solo con frecuencia conocida» se
+            # aplica en la lista para que el cambio sea inmediato.
+            return self.data.find_passes(lat, lon, alt, days, min_el, groups, False)
 
         self._run_bg(work, self._on_passes_ready)
 
@@ -535,15 +600,21 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._set_busy(False)
         self._update_tle_status()
         self.search_entry.set_text("")
+        if not self._groups():
+            self._show_no_groups()
+            self._maybe_run_pending()
+            return
         if not items:
             self.empty_page.set_title("No hay pasos")
             self.empty_page.set_description("Prueba con más días o una elevación mínima menor.")
             self.meta_label.set_text("")
             self.next_card.set_visible(False)
             self.stack.set_visible_child_name("empty")
+            self._maybe_run_pending()
             return
         self._render_list()
         self._consume_pending_detail()
+        self._maybe_run_pending()
 
     # ================================================================ lista
     def _show_more(self) -> None:
@@ -558,10 +629,36 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._row_widgets.clear()
 
         query = self.search_entry.get_text().strip().lower()
-        self.filtered = [item for item in self.items if not query or query in item.sat.name.lower()]
+        only_freq = self.only_freq_check.get_active()
+        selected_groups = set(self._groups())
+        min_el = MIN_EL[self.el_row.get_selected()]
+        days = DAYS[self.days_row.get_selected()]
+        limit = time.time() + days * 86400.0
+        self.filtered = filter_passes(
+            self.items,
+            query=query,
+            only_freq=only_freq,
+            groups=selected_groups,
+            min_el=min_el,
+            limit=limit,
+        )
         if not self.filtered:
-            self.empty_page.set_title("Ningún paso coincide")
-            self.empty_page.set_description("Prueba con otro nombre o borra el filtro.")
+            if not selected_groups:
+                self._show_no_groups()
+                return
+            if only_freq and not query:
+                self.empty_page.set_title("Ningún paso con frecuencia conocida")
+                self.empty_page.set_description(
+                    "Desactiva «Solo con frecuencia conocida» para ver todos los pasos."
+                )
+            elif query:
+                self.empty_page.set_title("Ningún paso coincide")
+                self.empty_page.set_description("Prueba con otro nombre o borra el filtro.")
+            else:
+                self.empty_page.set_title("Ningún paso con estos filtros")
+                self.empty_page.set_description(
+                    "Prueba con más días, una elevación mínima menor u otro grupo."
+                )
             self.meta_label.set_text(f"0 de {len(self.items)} pasos")
             self.next_card.set_visible(False)
             self.stack.set_visible_child_name("empty")
@@ -631,7 +728,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         lead = 5 * 60.0
         soon: set[tuple[int, int]] = set()
         live: set[tuple[int, int]] = set()
-        for item in self.items:
+        for item in self.filtered:
             key = self._pass_key(item)
             if item.aos <= now <= item.los:
                 live.add(key)

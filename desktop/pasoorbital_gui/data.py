@@ -23,6 +23,7 @@ class Satellite:
     period_min: float
     alt_km: float
     channels: list[dict] = field(default_factory=list)
+    groups: tuple[str, ...] = ()
 
     @property
     def tle_age_days(self) -> float:
@@ -96,6 +97,31 @@ class PassItem:
         )
 
 
+def filter_passes(
+    items: list[PassItem],
+    query: str = "",
+    only_freq: bool = False,
+    groups: tuple[str, ...] | list[str] = (),
+    min_el: float = 0.0,
+    limit: float = float("inf"),
+) -> list[PassItem]:
+    """Aplica los filtros de la lista sin volver a calcular órbitas."""
+    selected = set(groups)
+    needle = query.strip().lower()
+    out: list[PassItem] = []
+    for item in items:
+        if only_freq and item.freq_hz is None:
+            continue
+        if selected and not (set(item.sat.groups) & selected):
+            continue
+        if item.max_el < min_el or item.aos > limit:
+            continue
+        if needle and needle not in item.sat.name.lower():
+            continue
+        out.append(item)
+    return out
+
+
 class PasoOrbitalData:
     """Catálogo, frecuencias y cálculo de pasos para la interfaz."""
 
@@ -128,6 +154,7 @@ class PasoOrbitalData:
                 period_min=entry["period_min"],
                 alt_km=entry["alt_km"],
                 channels=self.freqdb.lookup(entry["norad"], entry["name"]),
+                groups=tuple(entry.get("groups", ())),
             )
         self.satellites = sats
         stamps = [s.get("fetched_at") for s in statuses if s.get("fetched_at")]
