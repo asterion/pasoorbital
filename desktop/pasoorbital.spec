@@ -1,6 +1,6 @@
 Name:           pasoorbital
-Version:        1.9.0
-Release:        2
+Version:        1.9.1
+Release:        1
 Summary:        Predicción de pasos de satélites para escucha radio
 License:        MIT
 URL:            https://github.com/asterion/pasoorbital
@@ -124,7 +124,9 @@ fi
 %doc README.md AUTHORS.md
 
 %changelog
-* Mon Oct 19 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.0-2
+* Mon Oct 19 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.1-1
+- Filtros reactivos en la lista de pasos.
+- Paquete 1.9.1.
 - Instalar los módulos en /usr/lib/pasoorbital, independiente de la versión
   de Python, para que el RPM funcione también con Python 3.14 (Fedora 43/44).
 - Asegurar permisos de lectura de los módulos.

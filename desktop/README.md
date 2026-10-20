@@ -35,7 +35,7 @@ cd desktop
 ./build_deb.sh
 ```
 
-El paquete queda en `desktop/dist/pasoorbital_1.9.0-1_all.deb`.
+El paquete queda en `desktop/dist/pasoorbital_1.9.1-1_all.deb`.
 
 ## Construir e instalar el RPM
 
@@ -47,19 +47,19 @@ hay que reconstruirlo al actualizar Fedora.
 ```bash
 cd desktop
 ./build_rpm.sh
-sudo rpm -ivh dist/pasoorbital-1.9.0-2.noarch.rpm
+sudo rpm -ivh dist/pasoorbital-1.9.1-1.noarch.rpm
 ```
 
 Para actualizar:
 
 ```bash
-sudo rpm -Uvh dist/pasoorbital-1.9.0-2.noarch.rpm
+sudo rpm -Uvh dist/pasoorbital-1.9.1-1.noarch.rpm
 ```
 
 ## Instalar el .deb
 
 ```bash
-sudo apt install ./desktop/dist/pasoorbital_1.9.0-1_all.deb
+sudo apt install ./desktop/dist/pasoorbital_1.9.1-1_all.deb
 ```
 
 > **Aviso de apt al instalar un `.deb` local:** si aparece
@@ -70,8 +70,8 @@ sudo apt install ./desktop/dist/pasoorbital_1.9.0-1_all.deb
 > desde allí:
 >
 > ```bash
-> cp dist/pasoorbital_1.9.0-1_all.deb /tmp/
-> sudo apt install /tmp/pasoorbital_1.9.0-1_all.deb
+> cp dist/pasoorbital_1.9.1-1_all.deb /tmp/
+> sudo apt install /tmp/pasoorbital_1.9.1-1_all.deb
 > ```
 
 
