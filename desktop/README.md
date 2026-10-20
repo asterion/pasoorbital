@@ -13,6 +13,10 @@ detalle usa pestañas **Resumen**, **Radio** y **Cielo**, sin scroll. Los comand
 LRPT están ajustados a SatDump 1.2.2. La pestaña **Cielo** muestra en vivo el
 marcador del satélite, su estela y el progreso del paso.
 
+Los filtros de la barra lateral son reactivos: **Solo con frecuencia conocida**
+se aplica al instante; cambiar **Días**, **Elevación mínima** o los **Grupos**
+actualiza la lista y recalcula en segundo plano automáticamente.
+
 ## Requisitos
 
 - Ubuntu 24.10 o superior / Debian 13 o superior (libadwaita 1.6+).
