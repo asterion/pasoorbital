@@ -176,7 +176,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.alt_row.set_title("Altitud (m)")
         self.alt_row.set_digits(0)
         self.alt_row.add_css_class("alt-row")
-        self.alt_row.set_subtitle("Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano")
+        self.alt_row.set_subtitle("Fuente: Open-Meteo (terreno)\nEdificio: manual")
         self.alt_row.set_subtitle_lines(2)
         self.alt_btn = Gtk.Button(label="Obtener")
         self.alt_btn.set_tooltip_text(
@@ -429,10 +429,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._setting_alt = False
         if cfg.get("alt_source") == "open-meteo":
             self.alt_row.set_subtitle(
-                "Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano"
+                "Fuente: Open-Meteo (terreno)\nEdificio: manual"
             )
         else:
-            self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
+            self.alt_row.set_subtitle("Fuente: manual\nAltitud introducida a mano")
 
         days = int(cfg.get("days", 2))
         self.days_row.set_selected(DAYS.index(days) if days in DAYS else 1)
@@ -695,9 +695,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         if only_freq:
             reasons.append("frecuencia conocida")
         if selected_groups and len(selected_groups) < len(self.switches):
-            reasons.append(f"{len(selected_groups)} grupos")
+            label = "grupo" if len(selected_groups) == 1 else "grupos"
+            reasons.append(f"{len(selected_groups)} {label}")
         if min_el > 0:
-            reasons.append(f"altura ≥ {min_el}°")
+            reasons.append(f"≥{min_el}°")
         return reasons
 
     def _render_list(self) -> None:
@@ -755,12 +756,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         reasons = self._filter_reasons(query, only_freq, selected_groups, min_el)
         detail = f" · {' · '.join(reasons)}" if reasons else ""
         self.meta_label.set_text(
-            f"{len(self.filtered)} de {len(self.items)} calculados"
-            f"{detail} · {self.elapsed:.1f} s"
+            f"{len(self.filtered)}/{len(self.items)} calculados{detail}"
         )
         self.meta_label.set_tooltip_text(
             "Pasos mostrados / pasos calculados"
             + (f". Filtros: {', '.join(reasons)}." if reasons else ".")
+            + f" Tiempo de cálculo: {self.elapsed:.1f} s."
         )
         remaining = len(self.filtered) - self.shown
         self.more_btn.set_visible(remaining > 0)
@@ -834,7 +835,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         freq.add_css_class("pass-freq")
         suffix.append(freq)
         if item.doppler_max_hz is not None:
-            dop = Gtk.Label(label=f"±{abs(item.doppler_max_hz) / 1000:.1f} kHz")
+            dop = Gtk.Label(label=f"±{abs(item.doppler_max_hz) / 1000:.1f} kHz".replace(".", ","))
             dop.set_xalign(1)
             dop.add_css_class("caption")
             dop.add_css_class("pass-meta")
@@ -1721,7 +1722,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         if self._setting_alt:
             return
         self.config["alt_source"] = "manual"
-        self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
+        self.alt_row.set_subtitle("Fuente: manual\nAltitud introducida a mano")
         self._save_config()
 
     def _on_elevation(self, value: object) -> None:
@@ -1744,11 +1745,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.config["alt"] = meters
             self.config["alt_source"] = "open-meteo"
             self.alt_row.set_subtitle(
-                "Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano"
+                "Fuente: Open-Meteo (terreno)\nEdificio: manual"
             )
         else:
             self.config["alt_source"] = "manual"
-            self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
+            self.alt_row.set_subtitle("Fuente: manual\nAltitud introducida a mano")
         self._save_config()
         if self._has_location:
             self.calculate()
