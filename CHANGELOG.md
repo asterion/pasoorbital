@@ -3,6 +3,37 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.9.2] - 2026-10-31
+
+### Añadido
+
+- Estado SATCAT de CelesTrak en la lista y en el detalle, con caché local,
+  fuente, fecha y advertencia de que no garantiza que el satélite transmita.
+- Pestaña **Escucha** dentro del detalle, con cuenta atrás, hora local/UTC,
+  posición actual, Doppler, checklist y comando de SatDump.
+
+### Cambiado
+
+- La lista agrupa los pasos por **Hoy**, **Mañana** y fecha.
+- La hora tiene más peso visual que la frecuencia.
+- Los pasos de **60° o más** se destacan como más favorables.
+- «Solo con frecuencia conocida» se movió junto a los grupos.
+- El botón **Calcular pasos** se movió cerca de los filtros.
+- El botón de avisos muestra la etiqueta **Avisos**.
+
+### Corregido
+
+- La dirección muestra un resumen corto y conserva la dirección completa en el
+  tooltip.
+- Se unificó la coma decimal en frecuencias y Doppler.
+- El estado del TLE muestra icono, edad y explicación.
+- Se eliminó la tarjeta duplicada de próximo paso; ahora aparece en la lista.
+- Se mejoró el contraste de los datos secundarios de cada paso.
+
+### Empaquetado
+
+- Nuevos paquetes `.deb` y `.rpm` con la versión 1.9.2.
+
 ## [1.9.1] - 2026-10-19
 
 ### Corregido
