@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Cambiado
+
+- El repositorio queda dedicado exclusivamente a PasoOrbital Desktop.
+- Se retiraron la web local, el CLI, la validación con Skyfield y sus archivos
+  de configuración del árbol actual. Permanecen en el historial de Git.
+
 ## [1.9.2] - 2026-10-31
 
 ### Añadido

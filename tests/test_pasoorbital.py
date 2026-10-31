@@ -22,8 +22,6 @@ ISS_L2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.50377579440000"
 GOES_L1 = "1 51850U 22021A   26290.30589716  .00000098  00000+0  00000+0 0  9999"
 GOES_L2 = "2 51850   0.0068  52.8892 0000201 214.3116  91.7680  1.00272447  7814"
 
-ROOT = Path(__file__).resolve().parent.parent
-
 T0 = 1704110400.0  # 2024-01-01T12:00:00Z
 DAY = 86400.0
 
@@ -200,22 +198,6 @@ class TestFrequencies(unittest.TestCase):
         self.assertEqual(self.db.lookup(0, "ISS (NAUKA)"), [])
 
 
-@unittest.skipUnless((ROOT / "data" / "tle" / "stations.tle").exists(), "sin caché TLE local")
-class TestCli(unittest.TestCase):
-    def test_parser(self):
-        from pasoorbital import cli
-
-        import io
-        from contextlib import redirect_stdout
-
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            code = cli.main(
-                ["--lat", "40.4168", "--lon", "-3.7038", "--days", "0.3", "--min-el", "25", "--json"]
-            )
-        # main imprime JSON; basta con que no falle.
-        self.assertEqual(code, 0)
-        self.assertIn('"name"', buf.getvalue())
 
 
 if __name__ == "__main__":

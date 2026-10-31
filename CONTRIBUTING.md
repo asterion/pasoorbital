@@ -1,28 +1,26 @@
-# Cómo contribuir a PasoOrbital
+# Cómo contribuir a PasoOrbital Desktop
 
 Gracias por querer mejorar PasoOrbital. El proyecto es software libre bajo
-licencia MIT y las contribuciones son bienvenidas.
+licencia MIT.
 
 ## Antes de abrir un issue
 
 - Comprueba que no exista uno parecido.
-- Para fallos, indica sistema operativo, versión de PasoOrbital, pasos para
-  reproducirlo y, si puedes, capturas o el mensaje de error.
+- Indica sistema operativo, versión de PasoOrbital Desktop, pasos para
+  reproducir el fallo y, si puedes, capturas o el mensaje de error.
 - No publiques datos personales, direcciones exactas ni claves.
 
-## Entorno de desarrollo
+## Ejecutar desde el código
 
-### Web
+Desde la raíz del repositorio:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py
+PYTHONPATH=.:desktop python3 -m pasoorbital_gui.app
 ```
 
-Abre <http://127.0.0.1:8765/>.
+El Python del sistema debe tener `gi`, `sgp4` y `numpy`.
 
-### Escritorio
+Si necesitas un entorno virtual con acceso a los paquetes del sistema:
 
 ```bash
 python3 -m venv --system-site-packages .venv-gui
@@ -30,24 +28,23 @@ python3 -m venv --system-site-packages .venv-gui
 PYTHONPATH=.:desktop .venv-gui/bin/python -m pasoorbital_gui.app
 ```
 
-Para probar sin pantalla se puede usar Broadway:
+## Pruebas
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Las pruebas no necesitan red.
+
+Para probar la interfaz sin pantalla se puede usar Broadway, si está instalado:
 
 ```bash
 mkdir -p /tmp/pasoorbital-runtime && chmod 700 /tmp/pasoorbital-runtime
 XDG_RUNTIME_DIR=/tmp/pasoorbital-runtime gtk4-broadwayd -p 8085 :5
 XDG_RUNTIME_DIR=/tmp/pasoorbital-runtime \
 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 \
-PYTHONPATH=.:desktop .venv-gui/bin/python -m pasoorbital_gui.app
+PYTHONPATH=.:desktop python3 -m pasoorbital_gui.app
 ```
-
-## Pruebas
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-node --check static/app.js
-```
-
-Si no hay TLE cacheados, la prueba de CLI se omite; el resto no necesita red.
 
 ## Estilo
 

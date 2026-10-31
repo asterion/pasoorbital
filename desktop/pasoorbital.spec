@@ -51,22 +51,6 @@ find %{buildroot}%{pasoorbital_libdir} -name '*.pyc' -delete
 # Los ficheros fuente pueden llegar con permisos 600: deben ser legibles.
 chmod -R a+rX %{buildroot}%{pasoorbital_libdir}
 
-cat > %{buildroot}%{_bindir}/pasoorbital <<'EOF'
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-import os
-import sys
-
-# Módulos propios en una ruta independiente de la versión de Python.
-_prefix = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, os.path.join(_prefix, "lib", "pasoorbital"))
-
-from pasoorbital.cli import main
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-EOF
-chmod 755 %{buildroot}%{_bindir}/pasoorbital
 
 cat > %{buildroot}%{_bindir}/pasoorbital-gui <<'EOF'
 #!/usr/bin/python3
@@ -111,7 +95,6 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 
 %files
-%{_bindir}/pasoorbital
 %{_bindir}/pasoorbital-gui
 %dir %{pasoorbital_libdir}
 %{pasoorbital_libdir}/pasoorbital/

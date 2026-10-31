@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pasoorbital"
 version = "1.9.2"
-description = "Predicción de pasos de satélites para escucha radio"
+description = "Aplicación de escritorio para predecir pasos de satélites"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -31,11 +31,7 @@ dependencies = [
   "numpy>=1.24",
 ]
 
-[project.optional-dependencies]
-dev = ["skyfield>=1.49"]
-
 [project.scripts]
-pasoorbital = "pasoorbital.cli:main"
 pasoorbital-gui = "pasoorbital_gui.app:main"
 
 [project.urls]

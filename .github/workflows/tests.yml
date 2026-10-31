@@ -22,5 +22,3 @@ jobs:
           pip install -r requirements.txt
       - name: Pruebas
         run: python -m unittest discover -s tests -v
-      - name: Comprobar JavaScript
-        run: node --check static/app.js
