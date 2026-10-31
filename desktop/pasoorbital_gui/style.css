@@ -55,24 +55,6 @@
   box-shadow: inset 4px 0 0 0 @accent_color;
 }
 
-.next-pass {
-  background-color: alpha(@accent_bg_color, 0.09);
-  border: 1px solid alpha(@accent_color, 0.28);
-  border-radius: 14px;
-  padding: 11px 16px;
-}
-
-.next-eyebrow {
-  font-size: 0.72em;
-  font-weight: 700;
-  color: @accent_color;
-}
-
-.next-title {
-  font-size: 1.12em;
-  font-weight: 700;
-}
-
 .status-badge {
   border-radius: 999px;
   padding: 1px 8px;
@@ -117,4 +99,62 @@
   font-size: 2.15em;
   font-weight: 700;
   color: @accent_color;
+}
+
+/* Los datos secundarios de cada paso son información clave: subir contraste. */
+.pass-row .subtitle,
+.pass-row subtitle {
+  color: alpha(@window_fg_color, 0.88);
+  font-size: 0.94em;
+}
+
+.pass-meta {
+  color: alpha(@window_fg_color, 0.86);
+  font-size: 0.86em;
+}
+
+.alt-row .subtitle {
+  color: alpha(@window_fg_color, 0.86);
+}
+
+
+.pass-time {
+  font-family: monospace;
+  font-size: 1.02em;
+  font-weight: 700;
+  color: @window_fg_color;
+}
+
+.pass-freq {
+  font-weight: 500;
+  font-size: 0.90em;
+  color: alpha(@window_fg_color, 0.90);
+}
+
+.section-heading {
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: alpha(@window_fg_color, 0.82);
+}
+
+.filter-hint,
+.tle-label {
+  color: alpha(@window_fg_color, 0.82);
+}
+
+.tle-label {
+  font-size: 0.82em;
+}
+
+.pass-row.high-pass {
+  background-color: alpha(@accent_bg_color, 0.06);
+  box-shadow: inset 4px 0 0 0 @accent_color;
+}
+
+.high-pass-badge {
+  color: @accent_color;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }

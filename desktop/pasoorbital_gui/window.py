@@ -40,19 +40,20 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.config_path = Path(GLib.get_user_config_dir()) / "pasoorbital" / "config.json"
 
         self.config = self._read_config()
+        self._address_full = str(self.config.get("label") or "")
         self.items: list[PassItem] = []
         self.filtered: list[PassItem] = []
         self._geo_results: list[dict] = []
         self._elevation_token: tuple[float, float] | None = None
         self._setting_alt = False
         self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
+        self._row_meta: dict[Gtk.ListBoxRow, tuple[str, float]] = {}
         self._notified: set[tuple[int, int]] = set()
         self._detail_dialog: Adw.Dialog | None = None
         self._listen_phase: Gtk.Label | None = None
         self._listen_countdown: Gtk.Label | None = None
         self._listen_now: Gtk.Label | None = None
         self._listen_doppler: Gtk.Label | None = None
-        self._next_item: PassItem | None = None
         self._pending_pass_key: str | None = None
         self._live_item: PassItem | None = None
         self._live_points: list[tuple[float, float, float, float, float]] = []
@@ -114,12 +115,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         menu_btn.set_tooltip_text("Menú")
         header.pack_end(menu_btn)
 
-        self.calc_btn = Gtk.Button(label="Calcular")
-        self.calc_btn.add_css_class("suggested-action")
-        self.calc_btn.set_tooltip_text("Calcular pasos")
-        self.calc_btn.connect("clicked", lambda *_: self.calculate())
-        header.pack_end(self.calc_btn)
-
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         paned.set_position(380)
         paned.set_resize_start_child(False)
@@ -127,12 +122,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         paned.set_start_child(self._build_sidebar())
 
-        self.notify_btn = Gtk.ToggleButton()
-        self.notify_btn.set_icon_name(
-            "preferences-system-notifications-symbolic"
-            if self.notify_row.get_active()
-            else "notifications-disabled-symbolic"
-        )
+        self.notify_btn = Gtk.ToggleButton(label="Avisos")
         self.notify_btn.set_tooltip_text("Avisar 5 minutos antes")
         self.notify_btn.add_css_class("flat")
         self.notify_btn.set_active(self.notify_row.get_active())
@@ -163,12 +153,15 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         location = Adw.PreferencesGroup(title="Ubicación")
         self.address_row = Adw.EntryRow(title="Dirección")
-        self.address_row.set_text(str(self.config.get("label") or ""))
+        self.address_row.set_text(fmt.short_address(self._address_full))
+        self.address_row.set_position(0)
+        self.address_row.set_tooltip_text(self._address_full)
+        self.address_row.set_show_apply_button(False)
         self.address_row.connect("apply", lambda *_: self.geocode())
-        self.search_btn = Gtk.Button(icon_name="system-search-symbolic")
+        self.search_btn = Gtk.Button(label="Buscar")
         self.search_btn.set_valign(Gtk.Align.CENTER)
         self.search_btn.add_css_class("flat")
-        self.search_btn.set_tooltip_text("Buscar dirección")
+        self.search_btn.set_tooltip_text("Buscar la dirección escrita")
         self.search_btn.connect("clicked", lambda *_: self.geocode())
         self.address_row.add_suffix(self.search_btn)
         location.add(self.address_row)
@@ -182,9 +175,13 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.alt_row = Adw.SpinRow.new_with_range(-500.0, 9000.0, 10.0)
         self.alt_row.set_title("Altitud (m)")
         self.alt_row.set_digits(0)
-        self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
-        self.alt_btn = Gtk.Button(icon_name="find-location-symbolic")
-        self.alt_btn.set_tooltip_text("Calcular la altitud del terreno con Open-Meteo")
+        self.alt_row.add_css_class("alt-row")
+        self.alt_row.set_subtitle("Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano")
+        self.alt_row.set_subtitle_lines(2)
+        self.alt_btn = Gtk.Button(label="Obtener")
+        self.alt_btn.set_tooltip_text(
+            "Obtener automáticamente la altitud del terreno con Open-Meteo"
+        )
         self.alt_btn.add_css_class("flat")
         self.alt_btn.connect("clicked", lambda *_: self.auto_elevation())
         self.alt_row.add_suffix(self.alt_btn)
@@ -220,12 +217,38 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         groups_row.add_suffix(groups_box)
         prediction.add(groups_row)
 
+        self.only_freq_check = Adw.SwitchRow(title="Solo con frecuencia conocida")
+        self.only_freq_check.set_subtitle("Oculta los satélites sin frecuencia registrada")
+        self.only_freq_check.set_active(True)
+        prediction.add(self.only_freq_check)
+
         self.notify_row = Adw.SwitchRow(title="Avisar 5 min antes")
         self.notify_row.set_active(True)
         self.notify_row.set_tooltip_text("Notificación del escritorio al acercarse un paso")
         self.notify_row.connect("notify::active", lambda *_: self._save_config())
         self.notify_row.connect("notify::active", self._on_notify_row_changed)
         prediction.add(self.notify_row)
+
+        calc_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        calc_box.set_margin_top(6)
+        calc_box.set_halign(Gtk.Align.END)
+        self.calc_btn = Gtk.Button(label="Calcular pasos")
+        self.calc_btn.add_css_class("suggested-action")
+        self.calc_btn.set_tooltip_text(
+            "Recalcular ahora. Los cambios de días, elevación y grupos se aplican automáticamente."
+        )
+        self.calc_btn.connect("clicked", lambda *_: self.calculate())
+        calc_box.append(self.calc_btn)
+        prediction.add(calc_box)
+
+        filter_hint = Gtk.Label(
+            label="Días, elevación y grupos se recalculan automáticamente."
+        )
+        filter_hint.set_xalign(0)
+        filter_hint.set_wrap(True)
+        filter_hint.add_css_class("caption")
+        filter_hint.add_css_class("filter-hint")
+        prediction.add(filter_hint)
 
         page.add(prediction)
 
@@ -235,10 +258,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         bottom.set_margin_start(14)
         bottom.set_margin_end(14)
 
-        self.only_freq_check = Gtk.CheckButton(label="Solo con frecuencia conocida")
-        self.only_freq_check.set_active(True)
-        bottom.append(self.only_freq_check)
-
         self.status = Gtk.Label(label="")
         self.status.set_xalign(0)
         self.status.set_wrap(True)
@@ -246,11 +265,24 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.status.add_css_class("dim-label")
         bottom.append(self.status)
 
+        tle_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        self.tle_icon = Gtk.Image.new_from_icon_name("dialog-question-symbolic")
+        self.tle_icon.set_pixel_size(14)
+        self.tle_icon.set_valign(Gtk.Align.CENTER)
+        self.tle_icon.set_tooltip_text(
+            "TLE: elementos orbitales. Cuanto más recientes, mejor la predicción."
+        )
         self.tle_label = Gtk.Label(label="TLE: —")
         self.tle_label.set_xalign(0)
         self.tle_label.add_css_class("caption")
-        self.tle_label.add_css_class("dim-label")
-        bottom.append(self.tle_label)
+        self.tle_label.add_css_class("tle-label")
+        self.tle_label.set_tooltip_text(
+            "TLE: elementos orbitales del satélite. CelesTrak se actualiza cada 6 h; "
+            "una edad menor significa una predicción más precisa."
+        )
+        tle_box.append(self.tle_icon)
+        tle_box.append(self.tle_label)
+        bottom.append(tle_box)
 
         side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         side.set_size_request(380, -1)
@@ -288,8 +320,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         title = Gtk.Label(label="Pasos")
         title.set_xalign(0)
         title.add_css_class("title-1")
-        self.meta_label = Gtk.Label(label="Configura tu ubicación y pulsa «Calcular pasos».")
+        self.meta_label = Gtk.Label(
+            label="Configura tu ubicación y pulsa «Calcular pasos»."
+        )
         self.meta_label.set_xalign(0)
+        self.meta_label.set_wrap(True)
         self.meta_label.add_css_class("caption")
         self.meta_label.add_css_class("dim-label")
         titles.append(title)
@@ -304,48 +339,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.search_entry.connect("search-changed", lambda *_: self._render_list())
         head.append(self.search_entry)
         box.append(head)
-
-        self.next_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        self.next_card.add_css_class("next-pass")
-        self.next_card.set_margin_start(18)
-        self.next_card.set_margin_end(18)
-        self.next_card.set_margin_bottom(10)
-        self.next_card.set_visible(False)
-
-        next_left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        next_left.set_hexpand(True)
-        eyebrow = Gtk.Label(label="PRÓXIMO PASO")
-        eyebrow.set_xalign(0)
-        eyebrow.add_css_class("next-eyebrow")
-        self.next_title = Gtk.Label(label="")
-        self.next_title.set_xalign(0)
-        self.next_title.add_css_class("next-title")
-        self.next_detail = Gtk.Label(label="")
-        self.next_detail.set_xalign(0)
-        self.next_detail.set_wrap(True)
-        self.next_detail.add_css_class("caption")
-        self.next_detail.add_css_class("dim-label")
-        next_left.append(eyebrow)
-        next_left.append(self.next_title)
-        next_left.append(self.next_detail)
-
-        next_right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        next_right.set_valign(Gtk.Align.CENTER)
-        self.next_badge = Gtk.Label(label="")
-        self.next_badge.set_halign(Gtk.Align.END)
-        self.next_badge.add_css_class("badge")
-        self.next_btn = Gtk.Button(label="Ver detalle")
-        self.next_btn.add_css_class("suggested-action")
-        self.next_btn.set_tooltip_text(
-            "Abrir el detalle: Resumen, Radio, Cielo y Escucha"
-        )
-        self.next_btn.connect("clicked", self._open_next_detail)
-        next_right.append(self.next_badge)
-        next_right.append(self.next_btn)
-
-        self.next_card.append(next_left)
-        self.next_card.append(next_right)
-        box.append(self.next_card)
 
         self.stack = Gtk.Stack()
         self.stack.set_vexpand(True)
@@ -376,6 +369,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         results = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.listbox.set_header_func(self._list_header)
         self.listbox.add_css_class("boxed-list")
         self.listbox.set_margin_start(18)
         self.listbox.set_margin_end(18)
@@ -434,9 +428,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.alt_row.set_value(float(cfg.get("alt") or 0.0))
         self._setting_alt = False
         if cfg.get("alt_source") == "open-meteo":
-            self.alt_row.set_subtitle("Terreno · Open-Meteo (suma el edificio a mano)")
+            self.alt_row.set_subtitle(
+                "Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano"
+            )
         else:
-            self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
+            self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
 
         days = int(cfg.get("days", 2))
         self.days_row.set_selected(DAYS.index(days) if days in DAYS else 1)
@@ -450,20 +446,23 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.notify_row.set_active(bool(cfg.get("notify", True)))
 
         if cfg.get("label"):
-            self.address_row.set_text(str(cfg["label"]))
+            self._address_full = str(cfg["label"])
+            self.address_row.set_text(fmt.short_address(self._address_full))
+            self.address_row.set_position(0)
+            self.address_row.set_tooltip_text(self._address_full)
 
     def _groups(self) -> list[str]:
         return [group_id for group_id, switch in self.switches.items() if switch.get_active()]
 
     # ---------------------------------------------------------- reactividad
     def _connect_filter_signals(self) -> None:
-        self.only_freq_check.connect("toggled", self._on_only_freq_changed)
+        self.only_freq_check.connect("notify::active", self._on_only_freq_changed)
         for switch in self.switches.values():
             switch.connect("toggled", self._on_filter_changed)
         self.days_row.connect("notify::selected", self._on_filter_changed)
         self.el_row.connect("notify::selected", self._on_filter_changed)
 
-    def _on_only_freq_changed(self, _button: Gtk.CheckButton) -> None:
+    def _on_only_freq_changed(self, *_args) -> None:
         self._save_config()
         if self.items:
             self._render_list()
@@ -509,7 +508,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.empty_page.set_title("Sin grupos")
         self.empty_page.set_description("Selecciona al menos un grupo de satélites.")
         self.meta_label.set_text("")
-        self.next_card.set_visible(False)
         self.stack.set_visible_child_name("empty")
 
     # ------------------------------------------------------- estado SATCAT
@@ -593,10 +591,32 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     def _update_tle_status(self) -> None:
         if not self.data.tle_status:
             self.tle_label.set_text("TLE: —")
+            self.tle_label.set_tooltip_text(
+                "Sin datos de TLE. Pulsa actualizar para descargarlos."
+            )
+            self.tle_icon.set_from_icon_name("dialog-question-symbolic")
+            self.tle_icon.set_tooltip_text("Sin datos de TLE")
             return
         errors = [s for s in self.data.tle_status if s.get("error")]
+        age = self.data.tle_age_seconds()
         suffix = " · caché" if errors else ""
-        self.tle_label.set_text(f"TLE: {fmt.fmt_age(self.data.tle_age_seconds())}{suffix}")
+        self.tle_label.set_text(f"TLE: {fmt.fmt_age(age)}{suffix}")
+        if errors:
+            detail = "No se pudo actualizar; se usa la copia en caché."
+            icon = "dialog-warning-symbolic"
+        elif age > 6 * 3600:
+            detail = "El TLE tiene más de 6 horas; la predicción puede perder precisión."
+            icon = "dialog-warning-symbolic"
+        else:
+            detail = "TLE reciente; buena precisión para los próximos pasos."
+            icon = "emblem-ok-symbolic"
+        tooltip = (
+            f"{detail}\n"
+            "TLE = elementos orbitales del satélite. CelesTrak se actualiza cada 6 h."
+        )
+        self.tle_label.set_tooltip_text(tooltip)
+        self.tle_icon.set_from_icon_name(icon)
+        self.tle_icon.set_tooltip_text(detail)
 
     # =============================================================== cálculo
     def calculate(self) -> None:
@@ -650,7 +670,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.empty_page.set_title("No hay pasos")
             self.empty_page.set_description("Prueba con más días o una elevación mínima menor.")
             self.meta_label.set_text("")
-            self.next_card.set_visible(False)
             self.stack.set_visible_child_name("empty")
             self._maybe_run_pending()
             return
@@ -663,12 +682,31 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.shown += 250
         self._render_list()
 
+    def _filter_reasons(
+        self,
+        query: str,
+        only_freq: bool,
+        selected_groups: set[str],
+        min_el: int,
+    ) -> list[str]:
+        reasons: list[str] = []
+        if query:
+            reasons.append(f'texto «{query[:24]}»')
+        if only_freq:
+            reasons.append("frecuencia conocida")
+        if selected_groups and len(selected_groups) < len(self.switches):
+            reasons.append(f"{len(selected_groups)} grupos")
+        if min_el > 0:
+            reasons.append(f"altura ≥ {min_el}°")
+        return reasons
+
     def _render_list(self) -> None:
         child = self.listbox.get_first_child()
         while child is not None:
             self.listbox.remove(child)
             child = self.listbox.get_first_child()
         self._row_widgets.clear()
+        self._row_meta.clear()
 
         query = self.search_entry.get_text().strip().lower()
         only_freq = self.only_freq_check.get_active()
@@ -701,8 +739,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
                 self.empty_page.set_description(
                     "Prueba con más días, una elevación mínima menor u otro grupo."
                 )
-            self.meta_label.set_text(f"0 de {len(self.items)} pasos")
-            self.next_card.set_visible(False)
+            self.meta_label.set_text(
+                f"0 de {len(self.items)} pasos calculados · revisa los filtros"
+            )
             self.stack.set_visible_child_name("empty")
             self.more_btn.set_visible(False)
             return
@@ -712,8 +751,16 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             row = self._make_row(item)
             self.listbox.append(row)
             self._row_widgets[self._pass_key(item)] = row
+
+        reasons = self._filter_reasons(query, only_freq, selected_groups, min_el)
+        detail = f" · {' · '.join(reasons)}" if reasons else ""
         self.meta_label.set_text(
-            f"{len(self.filtered)} de {len(self.items)} pasos · calculado en {self.elapsed:.1f} s"
+            f"{len(self.filtered)} de {len(self.items)} calculados"
+            f"{detail} · {self.elapsed:.1f} s"
+        )
+        self.meta_label.set_tooltip_text(
+            "Pasos mostrados / pasos calculados"
+            + (f". Filtros: {', '.join(reasons)}." if reasons else ".")
         )
         remaining = len(self.filtered) - self.shown
         self.more_btn.set_visible(remaining > 0)
@@ -721,11 +768,28 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.more_btn.set_label(f"Mostrar más ({remaining} restantes)")
         self._tick()
 
+    def _list_header(self, row: Gtk.ListBoxRow, before: Gtk.ListBoxRow | None) -> None:
+        meta = self._row_meta.get(row)
+        if meta is None:
+            row.set_header(None)
+            return
+        day, aos = meta
+        before_meta = self._row_meta.get(before) if before is not None else None
+        if before_meta is not None and before_meta[0] == day:
+            row.set_header(None)
+            return
+        label = Gtk.Label(label=fmt.relative_day(aos).capitalize())
+        label.set_xalign(0)
+        label.add_css_class("section-heading")
+        label.set_margin_top(10)
+        label.set_margin_bottom(2)
+        label.set_margin_start(4)
+        row.set_header(label)
+
     def _make_row(self, item: PassItem) -> Gtk.Widget:
         now = time.time()
         live = item.aos <= now <= item.los
         subtitle = (
-            f"Aparece {fmt.fmt_time(item.aos)} ({fmt.relative_day(item.aos)}) · "
             f"{fmt.fmt_dur(item.duration_s)} · Altura {item.max_el:.0f}° · "
             f"{fmt.compass_word(item.az_aos).capitalize()} → "
             f"{fmt.compass_word(item.az_los).capitalize()}"
@@ -740,6 +804,23 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         row.set_subtitle(subtitle)
         row.set_subtitle_lines(2)
         row.set_activatable(True)
+        if item.max_el >= 60.0:
+            row.add_css_class("high-pass")
+            high_badge = Gtk.Label(label="60°+")
+            high_badge.add_css_class("high-pass-badge")
+            high_badge.set_tooltip_text(
+                "Paso de elevación alta (≥60°): mejor señal y menos obstáculos"
+            )
+            row.add_suffix(high_badge)
+        self._row_meta[row] = (
+            time.strftime("%Y-%m-%d", time.localtime(item.aos)),
+            item.aos,
+        )
+
+        time_label = Gtk.Label(label=fmt.fmt_time(item.aos))
+        time_label.set_valign(Gtk.Align.CENTER)
+        time_label.add_css_class("pass-time")
+        row.add_prefix(time_label)
 
         suffix = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         suffix.set_valign(Gtk.Align.CENTER)
@@ -750,12 +831,13 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         freq = Gtk.Label(label=fmt.fmt_freq(item.freq_hz))
         freq.set_xalign(1)
         freq.add_css_class("mono")
+        freq.add_css_class("pass-freq")
         suffix.append(freq)
         if item.doppler_max_hz is not None:
             dop = Gtk.Label(label=f"±{abs(item.doppler_max_hz) / 1000:.1f} kHz")
             dop.set_xalign(1)
             dop.add_css_class("caption")
-            dop.add_css_class("dim-label")
+            dop.add_css_class("pass-meta")
             suffix.append(dop)
         row.add_suffix(suffix)
         row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
@@ -770,7 +852,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     def _tick(self) -> bool:
         """Resalta los pasos próximos y avisa 5 minutos antes."""
         now = time.time()
-        self._update_next_card(now)
         lead = 5 * 60.0
         soon: set[tuple[int, int]] = set()
         live: set[tuple[int, int]] = set()
@@ -795,37 +876,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
     @staticmethod
     def _pass_detail_key(item: PassItem) -> str:
         return f"{item.sat.norad}:{int(item.aos)}"
-
-    def _update_next_card(self, now: float) -> None:
-        candidates = [item for item in self.filtered if item.los >= now]
-        if not candidates:
-            self._next_item = None
-            self.next_card.set_visible(False)
-            return
-        live = [item for item in candidates if item.aos <= now <= item.los]
-        item = live[0] if live else min(candidates, key=lambda candidate: candidate.aos)
-        self._next_item = item
-
-        self.next_title.set_text(item.sat.name)
-        self.next_detail.set_text(
-            f"{fmt.fmt_time(item.aos)}–{fmt.fmt_time(item.los)} · "
-            f"{item.max_el:.0f}° · {fmt.fmt_freq(item.freq_hz)}"
-        )
-        if live:
-            self.next_badge.set_text("EN CURSO")
-        else:
-            minutes = max(1, round((item.aos - now) / 60.0))
-            if minutes < 60:
-                self.next_badge.set_text(f"EN {minutes} MIN")
-            else:
-                self.next_badge.set_text(
-                    f"{fmt.relative_day(item.aos).upper()} {fmt.fmt_time(item.aos)}"
-                )
-        self.next_card.set_visible(True)
-
-    def _open_next_detail(self, *_args) -> None:
-        if self._next_item is not None:
-            self.show_detail(self._next_item)
 
     def show_pass_by_key(self, key: str) -> None:
         for item in self.items:
@@ -854,15 +904,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             return
         if self.notify_btn.get_active() != row.get_active():
             self.notify_btn.set_active(row.get_active())
-        self.notify_btn.set_icon_name(
-            "preferences-system-notifications-symbolic"
-            if row.get_active()
-            else "notifications-disabled-symbolic"
-        )
         self.notify_btn.set_tooltip_text(
-            "Avisar 5 minutos antes (activado)"
+            "Avisos activados: 5 minutos antes"
             if row.get_active()
-            else "Avisar 5 minutos antes (desactivado)"
+            else "Avisos desactivados"
         )
 
     def _send_notification(self, item: PassItem, now: float) -> None:
@@ -1597,7 +1642,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
     # ============================================================ geocodificación
     def geocode(self) -> None:
-        query = self.address_row.get_text().strip()
+        typed = self.address_row.get_text().strip()
+        display = fmt.short_address(self._address_full)
+        query = self._address_full if self._address_full and typed == display else typed
         if len(query) < 3:
             self._alert("Dirección corta", "Escribe una dirección de al menos 3 caracteres.")
             return
@@ -1647,8 +1694,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.geo_popover.popdown()
         self.lat_row.set_value(float(result["lat"]))
         self.lon_row.set_value(float(result["lon"]))
-        self.config["label"] = result["name"]
-        self.address_row.set_text(result["name"])
+        self._address_full = result["name"]
+        self.config["label"] = self._address_full
+        self.address_row.set_text(fmt.short_address(self._address_full))
+        self.address_row.set_tooltip_text(self._address_full)
+        self.address_row.set_position(0)
         self._has_location = True
         self._save_config()
         self.auto_elevation()
@@ -1671,7 +1721,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         if self._setting_alt:
             return
         self.config["alt_source"] = "manual"
-        self.alt_row.set_subtitle("Del terreno; ajusta la altura del edificio a mano")
+        self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
         self._save_config()
 
     def _on_elevation(self, value: object) -> None:
@@ -1693,10 +1743,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self._setting_alt = False
             self.config["alt"] = meters
             self.config["alt_source"] = "open-meteo"
-            self.alt_row.set_subtitle("Terreno · Open-Meteo (suma el edificio a mano)")
+            self.alt_row.set_subtitle(
+                "Fuente: Open-Meteo (terreno)\nAjusta el edificio a mano"
+            )
         else:
             self.config["alt_source"] = "manual"
-            self.alt_row.set_subtitle("Ajusta la altitud a mano")
+            self.alt_row.set_subtitle("Fuente: manual\nAjusta la altitud a mano")
         self._save_config()
         if self._has_location:
             self.calculate()

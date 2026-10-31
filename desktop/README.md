@@ -114,7 +114,16 @@ pasoorbital-gui
 
 ## Ejecutar desde el código fuente
 
-Con un entorno que tenga `sgp4` y acceso a `gi`:
+Desde la raíz del repositorio, sin crear paquete ni instalar nada:
+
+```bash
+cd satelites
+PYTHONPATH=.:desktop python3 -m pasoorbital_gui.app
+```
+
+Esto usa el Python del sistema, que debe tener `gi`, `sgp4` y `numpy`. Si tu
+distribución no incluye `sgp4`, instala `python3-sgp4` o usa un entorno virtual
+con acceso a los paquetes del sistema:
 
 ```bash
 python3 -m venv --system-site-packages .venv-gui

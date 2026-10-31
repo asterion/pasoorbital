@@ -30,6 +30,31 @@ def fmt_utc(ts: float) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).strftime("%H:%M:%S")
 
 
+def short_address(name: str) -> str:
+    """Resume una dirección larga para mostrarla en una sola línea.
+
+    Conserva el primer componente y el país, y elimina códigos postales
+    numéricos. La dirección completa se mantiene en la configuración y en el
+    tooltip.
+    """
+    text = " ".join(str(name or "").split()).strip()
+    if not text:
+        return ""
+    parts = [part.strip() for part in text.split(",") if part.strip()]
+    parts = [part for part in parts if not part.isdigit()]
+    if not parts:
+        return text
+    if len(parts) <= 2:
+        return ", ".join(parts)
+    first, last = parts[0], parts[-1]
+    if first.casefold() == last.casefold():
+        return first
+    summary = f"{first}, {last}"
+    if len(summary) > 48:
+        summary = summary[:47].rstrip() + "…"
+    return summary
+
+
 def fmt_hm(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%H:%M")
 
@@ -75,7 +100,7 @@ def compass_word(deg: float) -> str:
 def fmt_freq(hz: int | None) -> str:
     if not hz:
         return "—"
-    text = f"{hz / 1e6:.4f}"
+    text = f"{hz / 1e6:.4f}".replace(".", ",")
     if text.endswith("00"):
         text = text[:-1]
     return text + " MHz"
@@ -86,9 +111,9 @@ def fmt_dop(hz: float | None) -> str:
         return "—"
     khz = hz / 1000.0
     if abs(khz) < 0.05:
-        return "0.0 kHz"
+        return "0,0 kHz"
     sign = "+" if khz > 0 else "−"
-    return f"{sign}{abs(khz):.1f} kHz"
+    return f"{sign}{abs(khz):.1f} kHz".replace(".", ",")
 
 
 def fmt_az(deg: float) -> str:
