@@ -9,7 +9,7 @@ PasoOrbital (`sgp4`, TLE de CelesTrak, frecuencias y geocodificación) sin depen
 del navegador. Resalta los pasos que aparecen en los próximos 5 minutos, avisa
 con una notificación del escritorio que abre el detalle del paso. La pantalla
 principal destaca el próximo paso, muestra a **Astro** en la cabecera y el
-detalle usa pestañas **Resumen**, **Radio** y **Cielo**, sin scroll. Los comandos
+detalle usa pestañas **Resumen**, **Radio**, **Cielo** y **Escucha**. Los comandos
 LRPT están ajustados a SatDump 1.2.2. La pestaña **Cielo** muestra en vivo el
 marcador del satélite, su estela y el progreso del paso.
 
@@ -24,6 +24,22 @@ catálogo no garantiza que el transmisor esté encendido y, si corresponde, la
 fecha de decaimiento. El SATCAT se cachea 24 horas en
 `~/.cache/pasoorbital/status/` y se actualiza solo; si no hay red se usa la copia
 anterior.
+
+## Modo escucha
+
+La tarjeta del próximo paso tiene un solo botón, **Ver detalle**, que abre el
+detalle completo. Desde ahí puedes entrar en la pestaña **Escucha** o usar el
+botón **Modo escucha** del resumen. La pestaña muestra:
+
+- cuenta atrás hasta el AOS y estado del paso;
+- hora local y UTC de AOS, TCA y LOS;
+- azimut, elevación y distancia actuales durante el paso;
+- frecuencia, Doppler actual y comando de SatDump;
+- lista de comprobaciones previas;
+- estado SATCAT del satélite.
+
+El modo escucha no graba ni controla el SDR: prepara la escucha y deja el comando
+listo para copiar.
 
 ## Requisitos
 

@@ -74,5 +74,15 @@ class TestSatStatus(unittest.TestCase):
             self.assertIsInstance(SatelliteStatus(1, "+", "Operativo").tooltip(), str)
 
 
+# La prueba de formato UTC se mantiene separada del estado SATCAT.
+class TestFormatUtils(unittest.TestCase):
+    def test_fmt_utc(self) -> None:
+        from datetime import datetime, timezone
+        from desktop.pasoorbital_gui.format import fmt_utc
+
+        ts = datetime(2026, 10, 31, 12, 34, 56, tzinfo=timezone.utc).timestamp()
+        self.assertEqual(fmt_utc(ts), "12:34:56")
+
+
 if __name__ == "__main__":
     unittest.main()

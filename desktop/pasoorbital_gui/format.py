@@ -26,6 +26,10 @@ def fmt_time(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%H:%M:%S")
 
 
+def fmt_utc(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%H:%M:%S")
+
+
 def fmt_hm(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%H:%M")
 

@@ -111,3 +111,10 @@
 .status-title {
   font-weight: 600;
 }
+
+.listen-countdown {
+  font-family: monospace;
+  font-size: 2.15em;
+  font-weight: 700;
+  color: @accent_color;
+}

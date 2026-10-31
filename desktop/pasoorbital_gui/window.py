@@ -16,7 +16,7 @@ from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk  # noqa: 
 
 from . import __version__, format as fmt  # noqa: E402
 from .data import PassItem, PasoOrbitalData, filter_passes  # noqa: E402
-from pasoorbital.passes import C_KM_S  # noqa: E402
+from pasoorbital.passes import C_KM_S, look_at  # noqa: E402
 from .skyplot import ElevationPlot, SkyPlot, sample_track  # noqa: E402
 
 DAYS = [1, 2, 3, 7]
@@ -48,6 +48,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
         self._notified: set[tuple[int, int]] = set()
         self._detail_dialog: Adw.Dialog | None = None
+        self._listen_phase: Gtk.Label | None = None
+        self._listen_countdown: Gtk.Label | None = None
+        self._listen_now: Gtk.Label | None = None
+        self._listen_doppler: Gtk.Label | None = None
         self._next_item: PassItem | None = None
         self._pending_pass_key: str | None = None
         self._live_item: PassItem | None = None
@@ -331,7 +335,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.next_badge.set_halign(Gtk.Align.END)
         self.next_badge.add_css_class("badge")
         self.next_btn = Gtk.Button(label="Ver detalle")
-        self.next_btn.add_css_class("flat")
+        self.next_btn.add_css_class("suggested-action")
+        self.next_btn.set_tooltip_text(
+            "Abrir el detalle: Resumen, Radio, Cielo y Escucha"
+        )
         self.next_btn.connect("clicked", self._open_next_detail)
         next_right.append(self.next_badge)
         next_right.append(self.next_btn)
@@ -878,7 +885,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         )
 
     # ================================================================ detalle
-    def show_detail(self, item: PassItem) -> None:
+    def show_detail(self, item: PassItem, tab: str = "summary") -> None:
         self._stop_live()
         if self._detail_dialog is not None:
             self._detail_dialog.close()
@@ -908,7 +915,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         page.set_icon_name("audio-headphones-symbolic")
         page = stack.add_titled(self._detail_sky_page(item), "sky", "Cielo")
         page.set_icon_name("applications-science-symbolic")
-        stack.set_visible_child_name("summary")
+        page = stack.add_titled(self._detail_listen_page(item), "listen", "Escucha")
+        page.set_icon_name("media-playback-start-symbolic")
+        stack.set_visible_child_name(tab)
         stack.set_vexpand(True)
         toolbar.set_content(stack)
 
@@ -933,7 +942,170 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._detail_dialog = dialog
         dialog.present(self)
         if self._live_item is not None:
+            self._update_listen()
             self._live_source = GLib.timeout_add_seconds(1, self._live_tick)
+
+    # ============================================================ modo escucha
+    @staticmethod
+    def _fmt_countdown(seconds: float) -> str:
+        total = max(0, int(round(seconds)))
+        hours, rest = divmod(total, 3600)
+        minutes, secs = divmod(rest, 60)
+        if hours:
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        return f"{minutes:02d}:{secs:02d}"
+
+    def _detail_listen_page(self, item: PassItem) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        box.set_margin_top(20)
+        box.set_margin_bottom(18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+
+        self._listen_phase = Gtk.Label(label="Preparación")
+        self._listen_phase.set_xalign(0)
+        self._listen_phase.set_halign(Gtk.Align.START)
+        self._listen_phase.add_css_class("badge")
+        box.append(self._listen_phase)
+
+        self._listen_countdown = Gtk.Label(label="")
+        self._listen_countdown.set_xalign(0)
+        self._listen_countdown.add_css_class("listen-countdown")
+        box.append(self._listen_countdown)
+
+        self._listen_now = Gtk.Label(label="")
+        self._listen_now.set_xalign(0)
+        self._listen_now.set_wrap(True)
+        self._listen_now.add_css_class("caption")
+        self._listen_now.add_css_class("dim-label")
+        box.append(self._listen_now)
+
+        status = self.data.status_for(item.sat.norad)
+        if status is not None:
+            caveat = Gtk.Label(
+                label=(
+                    f"{status.label} · {status.source}. "
+                    "El estado del catálogo no garantiza que esté transmitiendo."
+                )
+            )
+            caveat.set_xalign(0)
+            caveat.set_wrap(True)
+            caveat.add_css_class("caption")
+            caveat.add_css_class("dim-label")
+            box.append(caveat)
+
+        box.append(self._heading("Horario"))
+        grid = Gtk.Grid()
+        grid.set_column_spacing(10)
+        grid.set_row_spacing(10)
+        grid.set_column_homogeneous(True)
+        cards = [
+            ("AOS", fmt.fmt_time(item.aos), f"UTC {fmt.fmt_utc(item.aos)}"),
+            ("Punto más alto", fmt.fmt_time(item.tca), f"UTC {fmt.fmt_utc(item.tca)}"),
+            ("LOS", fmt.fmt_time(item.los), f"UTC {fmt.fmt_utc(item.los)}"),
+            ("Duración", fmt.fmt_dur(item.duration_s), f"Altura máx. {item.max_el:.0f}°"),
+        ]
+        for index, (key, value, small) in enumerate(cards):
+            grid.attach(self._stat_card(key, value, small), index % 2, index // 2, 1, 1)
+        box.append(grid)
+
+        channels = item.sat.channels
+        if channels:
+            box.append(self._heading("Frecuencia"))
+            for channel in channels:
+                box.append(self._channel_card(channel))
+            self._listen_doppler = Gtk.Label(label="Doppler actual: —")
+            self._listen_doppler.set_xalign(0)
+            self._listen_doppler.set_wrap(True)
+            self._listen_doppler.add_css_class("caption")
+            self._listen_doppler.add_css_class("dim-label")
+            box.append(self._listen_doppler)
+        else:
+            self._listen_doppler = None
+            hint = Gtk.Label(label="Sin frecuencia registrada para este satélite.")
+            hint.set_xalign(0)
+            hint.set_wrap(True)
+            hint.add_css_class("dim-label")
+            box.append(hint)
+
+        box.append(self._heading("Antes de empezar"))
+        checklist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        for text in (
+            "Antena conectada y con vista despejada",
+            "SDR con ganancia manual y PPM ajustado",
+            "SatDump listo con el pipeline correcto",
+            "Empezar a grabar 2 minutos antes del AOS",
+        ):
+            checklist.append(Gtk.CheckButton(label=text))
+        box.append(checklist)
+
+        if channels:
+            box.append(self._heading("Comando"))
+            box.append(self._command_card(channels[0], item))
+
+        hint = Gtk.Label(
+            label="Este modo prepara la escucha; no graba ni controla el SDR."
+        )
+        hint.set_xalign(0)
+        hint.set_wrap(True)
+        hint.add_css_class("caption")
+        hint.add_css_class("dim-label")
+        box.append(hint)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(box)
+        scroll.set_vexpand(True)
+        return scroll
+
+    def _update_listen(self, now: float | None = None) -> None:
+        item = self._live_item
+        if (
+            item is None
+            or self._listen_phase is None
+            or self._listen_countdown is None
+            or self._listen_now is None
+        ):
+            return
+        now = time.time() if now is None else now
+        if now < item.aos:
+            self._listen_phase.set_text("PREPARACIÓN")
+            self._listen_countdown.set_text(
+                f"AOS en {self._fmt_countdown(item.aos - now)}"
+            )
+            self._listen_now.set_text(
+                f"El paso empieza a las {fmt.fmt_time(item.aos)}. "
+                f"TCA a las {fmt.fmt_time(item.tca)} · altura máxima {item.max_el:.0f}°."
+            )
+            if self._listen_doppler is not None:
+                self._listen_doppler.set_text("Doppler actual: —")
+        elif now <= item.los:
+            self._listen_phase.set_text("EN VIVO")
+            self._listen_countdown.set_text(
+                f"Quedan {self._fmt_countdown(item.los - now)}"
+            )
+            look = look_at(item.sat.satrec, item.obs, now)
+            if look is None:
+                self._listen_now.set_text("No se pudo calcular la posición actual.")
+            else:
+                az, el, rng, rate = look
+                self._listen_now.set_text(
+                    f"az {az:.0f}° · el {el:.0f}° · {rng:.0f} km"
+                )
+                if self._listen_doppler is not None and item.freq_hz:
+                    shift = -rate / C_KM_S * item.freq_hz
+                    self._listen_doppler.set_text(
+                        f"Frecuencia actual: {fmt.fmt_freq(round(item.freq_hz + shift))} "
+                        f"· {fmt.fmt_dop(shift)}"
+                    )
+        else:
+            self._listen_phase.set_text("TERMINADO")
+            self._listen_countdown.set_text("Paso completado")
+            self._listen_now.set_text(
+                f"El paso terminó a las {fmt.fmt_time(item.los)}."
+            )
+            if self._listen_doppler is not None:
+                self._listen_doppler.set_text("Doppler actual: —")
 
     def _stop_live(self) -> None:
         source = self._live_source
@@ -947,6 +1119,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._live_badge = None
         self._live_label = None
         self._live_progress = None
+        self._listen_phase = None
+        self._listen_countdown = None
+        self._listen_now = None
+        self._listen_doppler = None
 
     def _live_tick(self) -> bool:
         item = self._live_item
@@ -971,6 +1147,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             return False
 
         now = time.time()
+        self._update_listen(now)
         if now < item.aos:
             sky.set_now(None)
             elev.set_now(None)
@@ -1103,6 +1280,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         box.append(self._stats_grid(item))
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        listen = Gtk.Button(label="Modo escucha")
+        listen.add_css_class("suggested-action")
+        listen.connect("clicked", lambda *_: stack.set_visible_child_name("listen"))
+        actions.append(listen)
         radio = Gtk.Button(label="Ver radio")
         radio.add_css_class("flat")
         radio.connect("clicked", lambda *_: stack.set_visible_child_name("radio"))
