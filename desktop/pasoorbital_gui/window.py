@@ -64,6 +64,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._has_location = self.config.get("lat") is not None and self.config.get("lon") is not None
         self._calc_timer: int | None = None
         self._calc_pending = False
+        self._status_loading = False
 
         self.set_default_size(1280, 840)
         self.set_size_request(980, 640)
@@ -73,6 +74,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._apply_config()
         self._connect_filter_signals()
         GLib.idle_add(self._initial_load)
+        GLib.idle_add(self._load_statuses)
         GLib.timeout_add_seconds(10, self._tick)
 
     # ================================================================ UI
@@ -503,6 +505,39 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.next_card.set_visible(False)
         self.stack.set_visible_child_name("empty")
 
+    # ------------------------------------------------------- estado SATCAT
+    def _load_statuses(self, force: bool = False) -> bool:
+        if self._status_loading:
+            return False
+        self._status_loading = True
+
+        def work() -> None:
+            try:
+                self.data.load_statuses(force=force)
+            except Exception:  # noqa: BLE001
+                pass
+            GLib.idle_add(self._on_statuses_loaded)
+
+        threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def _on_statuses_loaded(self) -> None:
+        self._status_loading = False
+        if not self.get_visible():
+            return
+        if self.items:
+            self._render_list()
+
+    def _status_badge(self, norad: int) -> Gtk.Label | None:
+        status = self.data.status_for(norad)
+        if status is None:
+            return None
+        badge = Gtk.Label(label=status.short)
+        badge.add_css_class("status-badge")
+        badge.add_css_class(f"status-{status.slug}")
+        badge.set_tooltip_text(status.tooltip())
+        return badge
+
     # ============================================================ threading
     def _run_bg(self, fn: Callable[[], object], on_done: Callable[[object], object]) -> None:
         def worker() -> None:
@@ -701,6 +736,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         suffix = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         suffix.set_valign(Gtk.Align.CENTER)
+        status_badge = self._status_badge(item.sat.norad)
+        if status_badge is not None:
+            status_badge.set_halign(Gtk.Align.END)
+            suffix.append(status_badge)
         freq = Gtk.Label(label=fmt.fmt_freq(item.freq_hz))
         freq.set_xalign(1)
         freq.add_css_class("mono")
@@ -996,7 +1035,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         badge.set_xalign(0)
         badge.set_halign(Gtk.Align.START)
         badge.add_css_class("badge")
-        box.append(badge)
+        badges = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        badges.append(badge)
+        status_badge = self._status_badge(item.sat.norad)
+        if status_badge is not None:
+            badges.append(status_badge)
+        box.append(badges)
 
         summary = Gtk.Label()
         summary.set_markup(fmt.summary(item))
@@ -1004,6 +1048,56 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         summary.set_xalign(0)
         summary.add_css_class("summary")
         box.append(summary)
+
+        status = self.data.status_for(item.sat.norad)
+        if status is not None:
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            card.add_css_class("status-card")
+
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            badge = self._status_badge(item.sat.norad)
+            if badge is not None:
+                header.append(badge)
+            title = Gtk.Label(label=status.label)
+            title.set_xalign(0)
+            title.add_css_class("status-title")
+            header.append(title)
+            card.append(header)
+
+            source = Gtk.Label(
+                label=(
+                    f"{status.source}"
+                    + (
+                        f" · {fmt.fmt_age(max(0.0, time.time() - status.fetched_at))}"
+                        if status.fetched_at
+                        else ""
+                    )
+                )
+            )
+            source.set_xalign(0)
+            source.set_wrap(True)
+            source.add_css_class("caption")
+            source.add_css_class("dim-label")
+            card.append(source)
+
+            caveat = Gtk.Label(
+                label="El estado del catálogo no garantiza que el satélite esté transmitiendo."
+            )
+            caveat.set_xalign(0)
+            caveat.set_wrap(True)
+            caveat.add_css_class("caption")
+            caveat.add_css_class("dim-label")
+            card.append(caveat)
+
+            if status.decay_date:
+                decay = Gtk.Label(label=f"Fecha de decaimiento: {status.decay_date}")
+                decay.set_xalign(0)
+                decay.set_wrap(True)
+                decay.add_css_class("caption")
+                decay.add_css_class("dim-label")
+                card.append(decay)
+
+            box.append(card)
 
         box.append(self._heading("Horario"))
         box.append(self._stats_grid(item))

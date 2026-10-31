@@ -52,6 +52,8 @@ Además de la predicción, agrega:
 - **Detalle modal** con pestañas Resumen, Radio y Cielo.
 - **Cielo en vivo**: marcador del satélite, estela recorrida, línea «ahora» y
   progreso del paso.
+- **Estado SATCAT** de CelesTrak en la lista y el detalle, con caché local y
+  aviso de que el catálogo no garantiza que el satélite esté transmitiendo.
 - **Astro**, la mascota, en la cabecera y en el estado vacío.
 - Comandos LRPT ajustados a **SatDump 1.2.2**.
 - Paquetes **`.deb`** y **`.rpm`**.

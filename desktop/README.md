@@ -17,6 +17,14 @@ Los filtros de la barra lateral son reactivos: **Solo con frecuencia conocida**
 se aplica al instante; cambiar **Días**, **Elevación mínima** o los **Grupos**
 actualiza la lista y recalcula en segundo plano automáticamente.
 
+La lista muestra el **estado SATCAT** de CelesTrak (operativo, parcial, no
+operativo, decaído o desconocido) con un badge. El **Resumen** del detalle lo
+despliega con la fuente, la fecha de actualización, la advertencia de que el
+catálogo no garantiza que el transmisor esté encendido y, si corresponde, la
+fecha de decaimiento. El SATCAT se cachea 24 horas en
+`~/.cache/pasoorbital/status/` y se actualiza solo; si no hay red se usa la copia
+anterior.
+
 ## Requisitos
 
 - Ubuntu 24.10 o superior / Debian 13 o superior (libadwaita 1.6+).

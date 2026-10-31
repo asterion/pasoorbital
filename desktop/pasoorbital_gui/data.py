@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pasoorbital import freqs, geo, passes, tle
+from pasoorbital import freqs, geo, passes, satstatus, tle
 
 
 @dataclass
@@ -134,8 +134,10 @@ class PasoOrbitalData:
         self.catalogue = tle.Catalogue(self.cache_dir)
         self.freqdb = freqs.FrequencyDB(self.config_dir)
         self.geocoder = geo.Geocoder(self.cache_dir)
+        self.status_db = satstatus.StatusDB(self.cache_dir)
 
         self.satellites: dict[int, Satellite] = {}
+        self.statuses: dict[int, satstatus.SatelliteStatus] = {}
         self.tle_status: list[dict] = []
         self.last_tle_refresh = 0.0
 
@@ -160,6 +162,14 @@ class PasoOrbitalData:
         stamps = [s.get("fetched_at") for s in statuses if s.get("fetched_at")]
         self.last_tle_refresh = max(stamps) if stamps else time.time()
         return sats
+
+    # ------------------------------------------------------------------
+    def load_statuses(self, force: bool = False) -> dict[int, satstatus.SatelliteStatus]:
+        self.statuses = self.status_db.load(force=force)
+        return self.statuses
+
+    def status_for(self, norad: int) -> satstatus.SatelliteStatus | None:
+        return self.statuses.get(int(norad))
 
     # ------------------------------------------------------------------
     def find_passes(
