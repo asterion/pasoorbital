@@ -1,5 +1,5 @@
 Name:           pasoorbital
-Version:        1.9.2
+Version:        1.10.0
 Release:        1
 Summary:        Predicción de pasos de satélites para escucha radio
 License:        MIT
@@ -107,6 +107,10 @@ fi
 %doc README.md AUTHORS.md
 
 %changelog
+* Sun Nov 01 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.10.0-1
+- Rediseño de la lista, el detalle y el primer uso.
+- Paquete 1.10.0.
+
 * Sat Oct 31 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.9.2-1
 - Estado operativo SATCAT, modo escucha en el detalle y mejoras de jerarquía visual.
 - Paquete 1.9.2.

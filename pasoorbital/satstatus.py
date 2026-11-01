@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Iterable
 
 SATCAT_URL = "https://celestrak.org/pub/satcat.csv"
-USER_AGENT = "PasoOrbital/1.9.2 (herramienta local de prediccion de pasos)"
+USER_AGENT = "PasoOrbital/1.10.0 (herramienta local de prediccion de pasos)"
 CACHE_MAX_AGE_S = 24 * 3600
 
 

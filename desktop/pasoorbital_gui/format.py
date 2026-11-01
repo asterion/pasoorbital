@@ -98,12 +98,34 @@ def compass_word(deg: float) -> str:
 
 
 def fmt_freq(hz: int | None) -> str:
+    """Frecuencia en MHz con tres decimales fijos y coma decimal."""
     if not hz:
         return "—"
-    text = f"{hz / 1e6:.4f}".replace(".", ",")
-    if text.endswith("00"):
-        text = text[:-1]
-    return text + " MHz"
+    return f"{hz / 1e6:.3f}".replace(".", ",") + " MHz"
+
+
+def fmt_deg(value: float, decimals: int = 1) -> str:
+    """Grados con coma decimal y sin ceros sobrantes: «15,8°», «38°»."""
+    text = f"{value:.{decimals}f}".replace(".", ",")
+    if "," in text:
+        text = text.rstrip("0").rstrip(",")
+    return text + "°"
+
+
+def fmt_km(km: float) -> str:
+    """Distancia en km con separador de millares: «686 km», «1 208 km»."""
+    return f"{round(km):,}".replace(",", " ") + " km"
+
+
+def pass_quality(max_el: float) -> str:
+    """Calificación divulgativa de un paso según su elevación máxima."""
+    if max_el >= 60:
+        return "paso muy alto"
+    if max_el >= 30:
+        return "paso alto"
+    if max_el >= 15:
+        return "paso aceptable"
+    return "paso bajo"
 
 
 def fmt_dop(hz: float | None) -> str:
@@ -124,59 +146,85 @@ def _esc(text: str) -> str:
     return html.escape(str(text), quote=False)
 
 
+#: Nombre divulgativo de los tipos de OSM que devuelve Nominatim/Photon.
+TYPE_NAMES = {
+    "city": "ciudad",
+    "town": "pueblo",
+    "village": "pueblo",
+    "hamlet": "aldea",
+    "administrative": "comuna (administrativa)",
+    "state": "región",
+    "region": "región",
+    "county": "provincia",
+    "suburb": "barrio",
+    "neighbourhood": "barrio",
+    "residential": "zona residencial",
+    "road": "calle",
+    "house": "edificio",
+    "building": "edificio",
+    "country": "país",
+    "municipality": "municipio",
+    "locality": "localidad",
+    "isolated_dwelling": "vivienda aislada",
+    "postcode": "código postal",
+}
+
+
+def type_label(osm_type: str | None) -> str:
+    """Traduce el tipo de OSM a una etiqueta corta en español."""
+    return TYPE_NAMES.get((osm_type or "").lower(), (osm_type or "").replace("_", " "))
+
+
+def geo_icon(osm_type: str | None) -> str:
+    """Icono simbólico de Adwaita según el tipo de resultado."""
+    tipo = (osm_type or "").lower()
+    if tipo in ("city", "town", "village", "hamlet", "municipality", "locality",
+                "isolated_dwelling", "house", "building", "road", "residential"):
+        return "mark-location-symbolic"
+    if tipo in ("administrative", "state", "region", "county", "suburb",
+                "neighbourhood", "country", "postcode"):
+        return "map-symbolic"
+    return "mark-location-symbolic"
+
+
+def fmt_coords(lat: float, lon: float) -> str:
+    """Coordenadas con coma decimal y cuatro decimales, separadas por «·»."""
+    return f"{lat:.4f} · {lon:.4f}".replace(".", ",")
+
+
 def _slug(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return slug[:40] or "pasoorbital"
 
 
 def summary(item: PassItem) -> str:
-    """Resumen en una frase con marcas Pango (solo <b>)."""
-    name = _esc(item.sat.name)
+    """Frase divulgativa de una o dos líneas, sin marcas y sin artículo.
+
+    Va como texto secundario del detalle: la información accionable está en las
+    tarjetas, así que aquí solo se cuenta el paso en lenguaje llano.
+    """
+    name = item.sat.name
     dir_a = compass_word(item.az_aos)
     dir_l = compass_word(item.az_los)
-    el = f"{item.max_el:.0f}"
-    freq = (
-        f"Podrás escucharlo en <b>{fmt_freq(item.freq_hz)}</b>"
-        f"{f' ({_esc(item.mode)})' if item.mode else ''}."
-        if item.freq_hz
-        else "No hay una frecuencia de escucha registrada para este satélite."
-    )
+    el = fmt_deg(item.max_el)
 
     if item.partial_start:
-        text = (
-            f"El <b>{name}</b> ya está en curso: ahora va por el <b>{dir_a}</b>, "
-            f"llegará a <b>{el}°</b> de altura a las <b>{fmt_time(item.tca)}</b> y "
-            f"desaparecerá por el <b>{dir_l}</b> a las <b>{fmt_time(item.los)}</b>."
+        return (
+            f"{name} ya está en curso: ahora va por el {dir_a}, llega a {el} sobre el "
+            f"horizonte a las {fmt_time(item.tca)} y se va por el {dir_l} a las "
+            f"{fmt_time(item.los)}."
         )
-    elif item.partial_end:
-        text = (
-            f"El <b>{name}</b> aparecerá por el <b>{dir_a}</b> a las "
-            f"<b>{fmt_time(item.aos)}</b> y llegará a <b>{el}°</b> de altura a las "
-            f"<b>{fmt_time(item.tca)}</b>. Seguirá visible al menos hasta el final de "
-            f"la ventana ({fmt_time(item.los)})."
+    if item.partial_end:
+        return (
+            f"{name} aparece por el {dir_a} a las {fmt_time(item.aos)} y llega a {el} "
+            f"sobre el horizonte a las {fmt_time(item.tca)}. Sigue visible al menos "
+            f"hasta el final de la ventana ({fmt_time(item.los)})."
         )
-    else:
-        quality = (
-            "un paso alto" if item.max_el >= 30 else "un paso aceptable" if item.max_el >= 15 else "un paso bajo"
-        )
-        text = (
-            f"El <b>{name}</b> aparecerá por el <b>{dir_a}</b> a las "
-            f"<b>{fmt_time(item.aos)}</b>, subirá hasta <b>{el}°</b> de altura "
-            f"({quality}) a las <b>{fmt_time(item.tca)}</b> y desaparecerá por el "
-            f"<b>{dir_l}</b> a las <b>{fmt_time(item.los)}</b>. Dura unos "
-            f"<b>{fmt_dur(item.duration_s)}</b>."
-        )
-
-    doppler = ""
-    if item.freq_hz and item.doppler_aos_hz is not None and item.doppler_los_hz is not None:
-        if abs(item.doppler_aos_hz) < 50 and abs(item.doppler_los_hz) < 50:
-            doppler = " El Doppler será casi nulo."
-        else:
-            doppler = (
-                f" Al empezar, la frecuencia estará {fmt_dop(item.doppler_aos_hz)} respecto a la "
-                f"nominal; al final, {fmt_dop(item.doppler_los_hz)}."
-            )
-    return f"{text} {freq}{doppler}"
+    return (
+        f"{name} aparece por el {dir_a} a las {fmt_time(item.aos)}, sube hasta {el} "
+        f"sobre el horizonte a las {fmt_time(item.tca)} y se va por el {dir_l} a las "
+        f"{fmt_time(item.los)}. Dura {fmt_dur(item.duration_s)}."
+    )
 
 
 def command_for(channel: dict, item: PassItem) -> str:

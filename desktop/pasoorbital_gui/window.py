@@ -14,10 +14,24 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk  # noqa: E402
 
+from gi.repository import Pango  # noqa: E402
+
 from . import __version__, format as fmt  # noqa: E402
-from .data import PassItem, PasoOrbitalData, filter_passes  # noqa: E402
+from .data import (  # noqa: E402
+    SORT_MODES,
+    PassItem,
+    PasoOrbitalData,
+    filter_passes,
+    sort_passes,
+)
 from pasoorbital.passes import C_KM_S, look_at  # noqa: E402
-from .skyplot import ElevationPlot, SkyPlot, sample_track  # noqa: E402
+from .location import GeoClue, GeoClueError  # noqa: E402
+from .skyplot import (  # noqa: E402
+    ElevationPlot,
+    ProgressWithMarks,
+    SkyPlot,
+    sample_track,
+)
 
 DAYS = [1, 2, 3, 7]
 MIN_EL = [0, 5, 10, 15, 20, 30]
@@ -30,6 +44,16 @@ GROUPS = [
 
 ASSETS_DIR = Path(__file__).with_name("assets")
 ASTRO_FILE = ASSETS_DIR / "astro.png"
+APP_ID = "io.github.asterion.PasoOrbital"
+
+#: Elementos de la lista de comprobación del modo escucha.
+CHECKLIST = (
+    "Antena conectada y con vista despejada",
+    "SDR con ganancia manual y PPM ajustado",
+    "SatDump listo con el pipeline correcto",
+    "Empezar a grabar 2 minutos antes de que aparezca",
+    "Comprobar que el satélite está transmitiendo",
+)
 
 
 class PasoOrbitalWindow(Adw.ApplicationWindow):
@@ -49,7 +73,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._row_widgets: dict[tuple[int, int], Gtk.Widget] = {}
         self._row_meta: dict[Gtk.ListBoxRow, tuple[str, float]] = {}
         self._notified: set[tuple[int, int]] = set()
-        self._detail_dialog: Adw.Dialog | None = None
+        self._detail_page: Adw.Dialog | None = None
         self._listen_phase: Gtk.Label | None = None
         self._listen_countdown: Gtk.Label | None = None
         self._listen_now: Gtk.Label | None = None
@@ -70,6 +94,19 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._calc_timer: int | None = None
         self._calc_pending = False
         self._status_loading = False
+        self._sort_mode = str(self.config.get("sort", "time"))
+        self._high_only = bool(self.config.get("high_only", False))
+        self._checklist_open = bool(self.config.get("checklist_open", False))
+        self._geo_busy = False
+        self._geo_source = ""
+        self._row_items: dict[Gtk.ListBoxRow, PassItem] = {}
+        self._listen_channel = 0
+        self._listen_progress: ProgressWithMarks | None = None
+        self._listen_freq_value: Gtk.Label | None = None
+        self._listen_extra: Gtk.Label | None = None
+        self._listen_selector: Adw.ComboRow | None = None
+        self._listen_checklist: Gtk.Expander | None = None
+        self._listen_checklist_title: str = "Checklist"
 
         self.set_default_size(1280, 840)
         self.set_size_request(980, 640)
@@ -83,7 +120,18 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(10, self._tick)
 
     # ================================================================ UI
+
+
+
     def _build_ui(self) -> None:
+        grupo = Gio.SimpleActionGroup()
+        accion_orden = Gio.SimpleAction.new_stateful(
+            "sort", GLib.VariantType.new("s"), GLib.Variant("s", self._sort_mode)
+        )
+        accion_orden.connect("activate", self._on_sort_action)
+        grupo.add_action(accion_orden)
+        self.insert_action_group("win", grupo)
+
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
         brand = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -130,13 +178,129 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         header.pack_start(self.notify_btn)
 
         paned.set_end_child(self._build_content())
+
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toast_overlay.set_child(paned)
         toolbar.add_top_bar(header)
-        toolbar.set_content(paned)
+        toolbar.set_content(self.toast_overlay)
         self.set_content(toolbar)
 
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key_pressed)
         self.add_controller(keys)
+
+    def _tamano_detalle(self) -> tuple[int, int]:
+        """Tamaño del diálogo ajustado a la ventana, sin desbordarla.
+
+        En ventanas pequeñas ocupa prácticamente todo el espacio disponible, que
+        es el comportamiento que pide el rediseño para texto grande.
+        """
+        ancho_ventana = self.get_width() or 1280
+        alto_ventana = self.get_height() or 840
+        return (
+            max(520, min(960, ancho_ventana - 48)),
+            max(400, min(600, alto_ventana - 48)),
+        )
+
+    def close_detail(self) -> None:
+        if self._detail_page is not None:
+            self._detail_page.close()
+        self._detail_page = None
+        self._stop_live()
+
+
+    def _toast(self, texto: str) -> None:
+        self.toast_overlay.add_toast(Adw.Toast(title=texto, timeout=5))
+
+    def _set_empty(self, titulo: str, descripcion: str, acciones: bool = False) -> None:
+        self.empty_page.set_title(titulo)
+        self.empty_page.set_description(descripcion)
+        self._empty_box.set_visible(acciones)
+
+    def _construir_menu_orden(self) -> Gio.Menu:
+        menu = Gio.Menu()
+        for modo, etiqueta in SORT_MODES.items():
+            item = Gio.MenuItem.new(etiqueta, None)
+            item.set_action_and_target_value("win.sort", GLib.Variant("s", modo))
+            menu.append_item(item)
+        return menu
+
+    def _on_sort_action(self, accion: Gio.SimpleAction, parametro: GLib.Variant) -> None:
+        modo = parametro.get_string()
+        if modo not in SORT_MODES:
+            return
+        accion.set_state(GLib.Variant("s", modo))
+        self._sort_mode = modo
+        self._save_config()
+        if self.items:
+            self._render_list()
+
+    def _on_high_only_toggled(self, boton: Gtk.ToggleButton) -> None:
+        self._high_only = bool(boton.get_active())
+        self._save_config()
+        if self.items:
+            self._render_list()
+
+    def _on_row_activated(self, _lista: Gtk.ListBox, fila: Gtk.ListBoxRow) -> None:
+        item = self._row_items.get(fila)
+        if item is not None:
+            self.show_detail(item)
+
+    # ------------------------------------------------------------- ubicación
+    def _use_my_location(self) -> None:
+        if self._geo_busy:
+            return
+        self._geo_busy = True
+        self.locate_row.set_sensitive(False)
+        self.status.set_text("Consultando la ubicación del sistema…")
+
+        def trabajo():
+            try:
+                return GeoClue(APP_ID).locate()
+            except GeoClueError as exc:  # se muestra como toast, no como error
+                return exc
+
+        self._run_bg(trabajo, self._on_location)
+
+    def _on_location(self, resultado: object) -> None:
+        self._geo_busy = False
+        self.locate_row.set_sensitive(True)
+        self.status.set_text("")
+        if isinstance(resultado, GeoClueError):
+            self._toast(str(resultado))
+            return
+        lat, lon, alt = resultado  # type: ignore[misc]
+        self._confirmar_ubicacion(float(lat), float(lon), float(alt))
+
+    def _confirmar_ubicacion(self, lat: float, lon: float, alt: float) -> None:
+        dialogo = Adw.AlertDialog(
+            heading="¿Usar esta ubicación?",
+            body=(
+                f"El sistema informa de {fmt.fmt_coords(lat, lon)} y "
+                f"{round(alt)} m de altitud.\n\nSe usarán para calcular los pasos."
+            ),
+        )
+        dialogo.add_response("cancelar", "Cancelar")
+        dialogo.add_response("usar", "Usar esta ubicación")
+        dialogo.set_response_appearance("usar", Adw.ResponseAppearance.SUGGESTED)
+        dialogo.set_default_response("usar")
+        dialogo.set_close_response("cancelar")
+
+        def al_responder(_dialogo, respuesta: str) -> None:
+            if respuesta != "usar":
+                return
+            self.lat_row.set_value(lat)
+            self.lon_row.set_value(lon)
+            self.alt_row.set_value(round(alt))
+            self.config["alt_source"] = "geoclue"
+            self._address_full = ""
+            self.address_row.set_text("")
+            self._has_location = True
+            self._save_config()
+            self.calculate()
+
+        dialogo.connect("response", al_responder)
+        dialogo.present(self)
 
     def _on_key_pressed(self, _controller, keyval, _keycode, state) -> bool:
         if keyval == Gdk.KEY_f and state & Gdk.ModifierType.CONTROL_MASK:
@@ -146,6 +310,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.refresh_tle()
             return True
         return False
+
 
     def _build_sidebar(self) -> Gtk.Widget:
         page = Adw.PreferencesPage()
@@ -158,6 +323,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.address_row.set_tooltip_text(self._address_full)
         self.address_row.set_show_apply_button(False)
         self.address_row.connect("apply", lambda *_: self.geocode())
+        self.geo_spinner = Gtk.Spinner()
+        self.geo_spinner.set_valign(Gtk.Align.CENTER)
+        self.geo_spinner.set_visible(False)
+        self.address_row.add_suffix(self.geo_spinner)
         self.search_btn = Gtk.Button(label="Buscar")
         self.search_btn.set_valign(Gtk.Align.CENTER)
         self.search_btn.add_css_class("flat")
@@ -188,6 +357,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.alt_row.connect("notify::value", self._on_alt_changed)
         for row in (self.lat_row, self.lon_row, self.alt_row):
             location.add(row)
+
+        self.locate_row = Adw.ButtonRow(title="Usar mi ubicación")
+        self.locate_row.set_start_icon_name("mark-location-symbolic")
+        self.locate_row.set_tooltip_text("Pide la posición al sistema con GeoClue2")
+        self.locate_row.connect("activated", lambda *_: self._use_my_location())
+        location.add(self.locate_row)
         page.add(location)
 
         prediction = Adw.PreferencesGroup(title="Predicción")
@@ -295,18 +470,33 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         side.append(Gtk.Separator())
         side.append(bottom)
 
-        # Glosario de resultados de geocodificación
+        # Resultados de geocodificación
         self.geo_popover = Gtk.Popover()
         self.geo_popover.set_parent(self.address_row)
         self.geo_list = Gtk.ListBox()
         self.geo_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.geo_list.add_css_class("geo-list")
         self.geo_list.connect("row-activated", self._on_geo_row_activated)
-        geo_scroll = Gtk.ScrolledWindow()
-        geo_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        geo_scroll.set_child(self.geo_list)
-        geo_scroll.set_size_request(430, 260)
-        self.geo_popover.set_child(geo_scroll)
+        self.geo_scroll = Gtk.ScrolledWindow()
+        self.geo_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.geo_scroll.set_child(self.geo_list)
+        self.geo_scroll.set_max_content_height(320)
+        self.geo_scroll.set_propagate_natural_height(True)
+        self.geo_scroll.set_propagate_natural_width(True)
+        self.geo_source = Gtk.Label(label="")
+        self.geo_source.set_xalign(0)
+        self.geo_source.set_margin_top(4)
+        self.geo_source.set_margin_bottom(6)
+        self.geo_source.set_margin_start(12)
+        self.geo_source.add_css_class("caption")
+        self.geo_source.add_css_class("dim-label")
+        self.geo_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.geo_box.append(self.geo_scroll)
+        self.geo_box.append(Gtk.Separator())
+        self.geo_box.append(self.geo_source)
+        self.geo_popover.set_child(self.geo_box)
         return side
+
 
     def _build_content(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -317,11 +507,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         head.set_margin_start(18)
         head.set_margin_end(18)
         titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        titles.set_hexpand(True)
         title = Gtk.Label(label="Pasos")
         title.set_xalign(0)
         title.add_css_class("title-1")
         self.meta_label = Gtk.Label(
-            label="Configura tu ubicación y pulsa «Calcular pasos»."
+            label="Elige tu ubicación para empezar."
         )
         self.meta_label.set_xalign(0)
         self.meta_label.set_wrap(True)
@@ -331,11 +522,33 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         titles.append(self.meta_label)
         head.append(titles)
 
+        self.high_chip = Gtk.ToggleButton(label="Solo ≥60°")
+        self.high_chip.set_valign(Gtk.Align.CENTER)
+        self.high_chip.add_css_class("pill")
+        self.high_chip.set_tooltip_text("Mostrar solo los pasos de 60° o más")
+        self.high_chip.set_active(self._high_only)
+        self.high_chip.connect("toggled", self._on_high_only_toggled)
+
+        self.sort_btn = Gtk.MenuButton()
+        self.sort_btn.set_icon_name("view-sort-descending-symbolic")
+        self.sort_btn.set_valign(Gtk.Align.CENTER)
+        self.sort_btn.add_css_class("flat")
+        self.sort_btn.set_tooltip_text(
+            f"Ordenar los pasos de cada día · {SORT_MODES.get(self._sort_mode, 'Por hora')}"
+        )
+        self.sort_btn.set_menu_model(self._construir_menu_orden())
+
+        tools = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        tools.set_valign(Gtk.Align.CENTER)
+        tools.append(self.high_chip)
+        tools.append(self.sort_btn)
+        head.append(tools)
+
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text("Filtrar por satélite…")
-        self.search_entry.set_hexpand(True)
         self.search_entry.set_halign(Gtk.Align.END)
-        self.search_entry.set_max_width_chars(26)
+        self.search_entry.set_max_width_chars(22)
+        self.search_entry.set_sensitive(False)
         self.search_entry.connect("search-changed", lambda *_: self._render_list())
         head.append(self.search_entry)
         box.append(head)
@@ -354,8 +567,36 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
                 self.empty_page.set_paintable(Gdk.Texture.new_for_pixbuf(pixbuf))
             except GLib.Error:
                 pass
-        self.empty_page.set_title("Sin pasos todavía")
-        self.empty_page.set_description("Configura tu ubicación y pulsa «Calcular pasos».")
+
+        self._empty_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._empty_actions.set_halign(Gtk.Align.CENTER)
+        usar = Gtk.Button(label="Usar mi ubicación")
+        usar.add_css_class("suggested-action")
+        usar.add_css_class("pill")
+        usar.connect("clicked", lambda *_: self._use_my_location())
+        escribir = Gtk.Button(label="Escribir una dirección")
+        escribir.add_css_class("pill")
+        escribir.connect("clicked", lambda *_: self.address_row.grab_focus())
+        self._empty_actions.append(usar)
+        self._empty_actions.append(escribir)
+
+        ayuda = Gtk.Label(
+            label="Usa la ubicación del sistema (GeoClue) y pide confirmación antes de calcular."
+        )
+        ayuda.set_wrap(True)
+        ayuda.set_justify(Gtk.Justification.CENTER)
+        ayuda.add_css_class("caption")
+        ayuda.add_css_class("dim-label")
+
+        self._empty_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self._empty_box.append(self._empty_actions)
+        self._empty_box.append(ayuda)
+        self.empty_page.set_child(self._empty_box)
+        self._set_empty(
+            "Sin pasos todavía",
+            "Elige tu ubicación para calcular los próximos pasos.",
+            acciones=True,
+        )
         self.stack.add_named(self.empty_page, "empty")
 
         loading = Adw.StatusPage()
@@ -374,6 +615,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.listbox.set_margin_start(18)
         self.listbox.set_margin_end(18)
         self.listbox.set_margin_bottom(8)
+        self.listbox.connect("row-activated", self._on_row_activated)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self.listbox)
@@ -392,12 +634,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         box.append(self.stack)
         return box
 
-    # ============================================================== config
     def _read_config(self) -> dict:
         try:
             return json.loads(self.config_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
+
 
     def _save_config(self) -> None:
         groups = self._groups()
@@ -412,6 +654,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             "only_freq": self.only_freq_check.get_active(),
             "notify": self.notify_row.get_active(),
             "label": self.config.get("label", ""),
+            "sort": self._sort_mode,
+            "high_only": self._high_only,
+            "checklist_open": self._checklist_open,
         }
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -420,6 +665,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             pass
         self.config = cfg
 
+
     def _apply_config(self) -> None:
         cfg = self.config
         self.lat_row.set_value(float(cfg.get("lat") or 0.0))
@@ -427,10 +673,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._setting_alt = True
         self.alt_row.set_value(float(cfg.get("alt") or 0.0))
         self._setting_alt = False
-        if cfg.get("alt_source") == "open-meteo":
-            self.alt_row.set_subtitle(
-                "Fuente: Open-Meteo (terreno)\nEdificio: manual"
-            )
+        fuente = cfg.get("alt_source")
+        if fuente == "open-meteo":
+            self.alt_row.set_subtitle("Fuente: Open-Meteo (terreno)\nEdificio: manual")
+        elif fuente == "geoclue":
+            self.alt_row.set_subtitle("Fuente: ubicación del sistema\nEdificio: manual")
         else:
             self.alt_row.set_subtitle("Fuente: manual\nAltitud introducida a mano")
 
@@ -444,6 +691,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             switch.set_active(group_id in groups)
         self.only_freq_check.set_active(bool(cfg.get("only_freq", True)))
         self.notify_row.set_active(bool(cfg.get("notify", True)))
+        self.high_chip.set_active(self._high_only)
 
         if cfg.get("label"):
             self._address_full = str(cfg["label"])
@@ -497,6 +745,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._calc_pending = False
         self._schedule_recalculate()
 
+
     def _show_no_groups(self) -> None:
         if self._calc_timer is not None:
             GLib.source_remove(self._calc_timer)
@@ -505,12 +754,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self.items = []
         self.filtered = []
         self.shown = 250
-        self.empty_page.set_title("Sin grupos")
-        self.empty_page.set_description("Selecciona al menos un grupo de satélites.")
+        self._set_empty("Sin grupos", "Selecciona al menos un grupo de satélites.")
         self.meta_label.set_text("")
         self.stack.set_visible_child_name("empty")
+        self.search_entry.set_sensitive(False)
 
-    # ------------------------------------------------------- estado SATCAT
     def _load_statuses(self, force: bool = False) -> bool:
         if self._status_loading:
             return False
@@ -654,6 +902,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         self._run_bg(work, self._on_passes_ready)
 
+
     def _on_passes_ready(self, result: object) -> None:
         items, elapsed = result  # type: ignore[misc]
         self.items = items
@@ -667,20 +916,23 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self._maybe_run_pending()
             return
         if not items:
-            self.empty_page.set_title("No hay pasos")
-            self.empty_page.set_description("Prueba con más días o una elevación mínima menor.")
+            self._set_empty(
+                "No hay pasos",
+                "Prueba con más días o una elevación mínima menor.",
+            )
             self.meta_label.set_text("")
             self.stack.set_visible_child_name("empty")
+            self.search_entry.set_sensitive(False)
             self._maybe_run_pending()
             return
         self._render_list()
         self._consume_pending_detail()
         self._maybe_run_pending()
 
-    # ================================================================ lista
     def _show_more(self) -> None:
         self.shown += 250
         self._render_list()
+
 
     def _filter_reasons(
         self,
@@ -694,6 +946,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             reasons.append(f'texto «{query[:24]}»')
         if only_freq:
             reasons.append("frecuencia conocida")
+        if self._high_only:
+            reasons.append("≥60°")
         if selected_groups and len(selected_groups) < len(self.switches):
             label = "grupo" if len(selected_groups) == 1 else "grupos"
             reasons.append(f"{len(selected_groups)} {label}")
@@ -708,6 +962,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             child = self.listbox.get_first_child()
         self._row_widgets.clear()
         self._row_meta.clear()
+        self._row_items.clear()
 
         query = self.search_entry.get_text().strip().lower()
         only_freq = self.only_freq_check.get_active()
@@ -715,6 +970,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         min_el = MIN_EL[self.el_row.get_selected()]
         days = DAYS[self.days_row.get_selected()]
         limit = time.time() + days * 86400.0
+
         self.filtered = filter_passes(
             self.items,
             query=query,
@@ -722,47 +978,73 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             groups=selected_groups,
             min_el=min_el,
             limit=limit,
+            high_only=self._high_only,
         )
         if not self.filtered:
             if not selected_groups:
                 self._show_no_groups()
                 return
-            if only_freq and not query:
-                self.empty_page.set_title("Ningún paso con frecuencia conocida")
-                self.empty_page.set_description(
-                    "Desactiva «Solo con frecuencia conocida» para ver todos los pasos."
+            if self._high_only and not query:
+                self._set_empty(
+                    "Ningún paso de 60° o más",
+                    "Desactiva «Solo ≥60°» para ver todos los pasos.",
+                )
+            elif only_freq and not query:
+                self._set_empty(
+                    "Ningún paso con frecuencia conocida",
+                    "Desactiva «Solo con frecuencia conocida» para ver todos los pasos.",
                 )
             elif query:
-                self.empty_page.set_title("Ningún paso coincide")
-                self.empty_page.set_description("Prueba con otro nombre o borra el filtro.")
+                self._set_empty(
+                    "Ningún paso coincide",
+                    "Prueba con otro nombre o borra el filtro.",
+                )
             else:
-                self.empty_page.set_title("Ningún paso con estos filtros")
-                self.empty_page.set_description(
-                    "Prueba con más días, una elevación mínima menor u otro grupo."
+                self._set_empty(
+                    "Ningún paso con estos filtros",
+                    "Prueba con más días, una elevación mínima menor u otro grupo.",
                 )
             self.meta_label.set_text(
                 f"0 de {len(self.items)} pasos calculados · revisa los filtros"
             )
             self.stack.set_visible_child_name("empty")
             self.more_btn.set_visible(False)
+            self.search_entry.set_sensitive(False)
             return
 
+        # Agrupa por día y ordena dentro de cada día, para no romper las
+        # cabeceras «Hoy / Mañana / fecha».
+        por_dia: dict[str, list[PassItem]] = {}
+        for item in self.filtered:
+            clave = time.strftime("%Y-%m-%d", time.localtime(item.aos))
+            por_dia.setdefault(clave, []).append(item)
+        ordenados: list[PassItem] = []
+        for clave in sorted(por_dia):
+            ordenados.extend(sort_passes(por_dia[clave], self._sort_mode))
+
         self.stack.set_visible_child_name("results")
-        for item in self.filtered[: self.shown]:
-            row = self._make_row(item)
-            self.listbox.append(row)
-            self._row_widgets[self._pass_key(item)] = row
+        for item in ordenados[: self.shown]:
+            fila = self._make_row(item)
+            self._row_items[fila] = item
+            self._row_meta[fila] = (
+                time.strftime("%Y-%m-%d", time.localtime(item.aos)),
+                item.aos,
+            )
+            self._row_widgets[self._pass_key(item)] = fila
+            self.listbox.append(fila)
 
         reasons = self._filter_reasons(query, only_freq, selected_groups, min_el)
-        detail = f" · {' · '.join(reasons)}" if reasons else ""
+        detalle = f" · {' · '.join(reasons)}" if reasons else ""
         self.meta_label.set_text(
-            f"{len(self.filtered)}/{len(self.items)} calculados{detail}"
+            f"{len(self.filtered)}/{len(self.items)} calculados{detalle}"
         )
         self.meta_label.set_tooltip_text(
             "Pasos mostrados / pasos calculados"
             + (f". Filtros: {', '.join(reasons)}." if reasons else ".")
+            + f" Orden: {SORT_MODES.get(self._sort_mode, 'Por hora')}."
             + f" Tiempo de cálculo: {self.elapsed:.1f} s."
         )
+        self.search_entry.set_sensitive(True)
         remaining = len(self.filtered) - self.shown
         self.more_btn.set_visible(remaining > 0)
         if remaining > 0:
@@ -787,73 +1069,114 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         label.set_margin_start(4)
         row.set_header(label)
 
-    def _make_row(self, item: PassItem) -> Gtk.Widget:
-        now = time.time()
-        live = item.aos <= now <= item.los
-        subtitle = (
-            f"{fmt.fmt_dur(item.duration_s)} · Altura {item.max_el:.0f}° · "
+
+    def _make_row(self, item: PassItem) -> Gtk.ListBoxRow:
+        ahora = time.time()
+        en_vivo = item.aos <= ahora <= item.los
+        alto = item.max_el >= 60.0
+
+        fila = Gtk.ListBoxRow()
+        fila.set_activatable(True)
+        fila.add_css_class("pass-row")
+        if alto:
+            fila.add_css_class("high-pass")
+        if en_vivo:
+            fila.add_css_class("live")
+
+        rejilla = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        rejilla.add_css_class("pass-grid")
+
+        hora = Gtk.Label(label=fmt.fmt_time(item.aos))
+        hora.set_xalign(0)
+        hora.set_valign(Gtk.Align.CENTER)
+        hora.set_size_request(96, -1)
+        hora.add_css_class("pass-time")
+        rejilla.append(hora)
+
+        textos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        textos.set_valign(Gtk.Align.CENTER)
+        textos.set_hexpand(True)
+
+        cabecera = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        nombre = Gtk.Label(label=item.sat.name)
+        nombre.set_xalign(0)
+        nombre.set_ellipsize(Pango.EllipsizeMode.END)
+        nombre.set_max_width_chars(32)
+        nombre.add_css_class("pass-name")
+        cabecera.append(nombre)
+        if alto:
+            chip = Gtk.Label(label="paso alto")
+            chip.add_css_class("chip")
+            chip.set_valign(Gtk.Align.CENTER)
+            chip.set_tooltip_text("Paso de 60° o más: mejor señal y menos obstáculos")
+            cabecera.append(chip)
+        if en_vivo:
+            vivo = Gtk.Label(label="en curso")
+            vivo.add_css_class("chip")
+            vivo.add_css_class("chip-live")
+            vivo.set_valign(Gtk.Align.CENTER)
+            cabecera.append(vivo)
+        textos.append(cabecera)
+
+        direccion = (
             f"{fmt.compass_word(item.az_aos).capitalize()} → "
             f"{fmt.compass_word(item.az_los).capitalize()}"
         )
-        if live:
-            subtitle += " · en curso"
-
-        row = Adw.ActionRow()
-        row.add_css_class("pass-row")
-        row.set_use_markup(False)
-        row.set_title(item.sat.name)
-        row.set_subtitle(subtitle)
-        row.set_subtitle_lines(2)
-        row.set_activatable(True)
-        if item.max_el >= 60.0:
-            row.add_css_class("high-pass")
-            high_badge = Gtk.Label(label="60°+")
-            high_badge.add_css_class("high-pass-badge")
-            high_badge.set_tooltip_text(
-                "Paso de elevación alta (≥60°): mejor señal y menos obstáculos"
+        subtitulo = Gtk.Label(
+            label=(
+                f"{fmt.fmt_dur(item.duration_s)} · {fmt.fmt_deg(item.max_el, 0)} · "
+                f"{direccion}"
             )
-            row.add_suffix(high_badge)
-        self._row_meta[row] = (
-            time.strftime("%Y-%m-%d", time.localtime(item.aos)),
-            item.aos,
         )
+        subtitulo.set_xalign(0)
+        subtitulo.add_css_class("pass-sub")
+        textos.append(subtitulo)
+        rejilla.append(textos)
 
-        time_label = Gtk.Label(label=fmt.fmt_time(item.aos))
-        time_label.set_valign(Gtk.Align.CENTER)
-        time_label.add_css_class("pass-time")
-        row.add_prefix(time_label)
+        datos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        datos.set_size_request(210, -1)
+        datos.set_valign(Gtk.Align.CENTER)
 
-        suffix = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        suffix.set_valign(Gtk.Align.CENTER)
-        status_badge = self._status_badge(item.sat.norad)
-        if status_badge is not None:
-            status_badge.set_halign(Gtk.Align.END)
-            suffix.append(status_badge)
-        freq = Gtk.Label(label=fmt.fmt_freq(item.freq_hz))
-        freq.set_xalign(1)
-        freq.add_css_class("mono")
-        freq.add_css_class("pass-freq")
-        suffix.append(freq)
+        estado = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        estado.set_halign(Gtk.Align.END)
+        info = self.data.status_for(item.sat.norad)
+        if info is not None:
+            punto = Gtk.Label(label="●")
+            punto.add_css_class("status-dot")
+            punto.add_css_class(f"status-dot-{info.slug}")
+            texto_estado = Gtk.Label(label=info.short)
+            texto_estado.add_css_class("pass-status")
+            estado.append(punto)
+            estado.append(texto_estado)
+            estado.set_tooltip_text(info.tooltip())
+        datos.append(estado)
+
+        linea = fmt.fmt_freq(item.freq_hz)
         if item.doppler_max_hz is not None:
-            dop = Gtk.Label(label=f"±{abs(item.doppler_max_hz) / 1000:.1f} kHz".replace(".", ","))
-            dop.set_xalign(1)
-            dop.add_css_class("caption")
-            dop.add_css_class("pass-meta")
-            suffix.append(dop)
-        row.add_suffix(suffix)
-        row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
-        row.connect("activated", lambda *_: self.show_detail(item))
-        return row
+            desplazamiento = f"{abs(item.doppler_max_hz) / 1000:.1f}".replace(".", ",")
+            linea += f" · ±{desplazamiento} kHz"
+        valor = Gtk.Label(label=linea)
+        valor.set_xalign(1)
+        valor.add_css_class("pass-data")
+        datos.append(valor)
+        rejilla.append(datos)
 
-    # ================================================================ avisos
+        rejilla.append(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+        fila.set_child(rejilla)
+        return fila
+
     @staticmethod
     def _pass_key(item: PassItem) -> tuple[int, int]:
         return (item.sat.norad, int(round(item.aos)))
+
 
     def _tick(self) -> bool:
         """Resalta los pasos próximos y avisa 5 minutos antes."""
         now = time.time()
         lead = 5 * 60.0
+        animaciones = bool(
+            Gtk.Settings.get_default().get_property("gtk-enable-animations")
+        )
         soon: set[tuple[int, int]] = set()
         live: set[tuple[int, int]] = set()
         for item in self.filtered:
@@ -867,9 +1190,10 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
                     self._send_notification(item, now)
         for key, row in self._row_widgets.items():
             row.remove_css_class("soon")
+            row.remove_css_class("soon-static")
             row.remove_css_class("live")
             if key in soon:
-                row.add_css_class("soon")
+                row.add_css_class("soon" if animaciones else "soon-static")
             elif key in live:
                 row.add_css_class("live")
         return True
@@ -931,14 +1255,19 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         )
 
     # ================================================================ detalle
+
+
+
     def show_detail(self, item: PassItem, tab: str = "summary") -> None:
         self._stop_live()
-        if self._detail_dialog is not None:
-            self._detail_dialog.close()
+        if self._detail_page is not None:
+            self._detail_page.close()
+            self._detail_page = None
 
         dialog = Adw.Dialog()
-        dialog.set_content_width(960)
-        dialog.set_content_height(600)
+        ancho, alto = self._tamano_detalle()
+        dialog.set_content_width(ancho)
+        dialog.set_content_height(alto)
         dialog.set_can_close(True)
 
         toolbar = Adw.ToolbarView()
@@ -953,45 +1282,101 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         switcher.set_stack(stack)
         header.pack_start(switcher)
 
+        grupo = Gio.SimpleActionGroup()
+        accion_ics = Gio.SimpleAction.new("ics", None)
+        accion_ics.connect("activate", lambda *_: self._save_ics(item))
+        grupo.add_action(accion_ics)
+        dialog.insert_action_group("detail", grupo)
+
+        menu = Gio.Menu()
+        menu.append("Guardar .ics", "detail.ics")
+        menu_btn = Gtk.MenuButton(icon_name="view-more-symbolic")
+        menu_btn.set_menu_model(menu)
+        menu_btn.set_tooltip_text("Más acciones")
+        header.pack_end(menu_btn)
+
         toolbar.add_top_bar(header)
 
-        page = stack.add_titled(self._detail_summary_page(item, stack), "summary", "Resumen")
-        page.set_icon_name("view-list-symbolic")
-        page = stack.add_titled(self._detail_radio_page(item), "radio", "Radio")
-        page.set_icon_name("audio-headphones-symbolic")
-        page = stack.add_titled(self._detail_sky_page(item), "sky", "Cielo")
-        page.set_icon_name("applications-science-symbolic")
-        page = stack.add_titled(self._detail_listen_page(item), "listen", "Escucha")
-        page.set_icon_name("media-playback-start-symbolic")
+        paginas = (
+            ("summary", "Resumen", "view-list-symbolic",
+             self._detail_summary_page(item, stack)),
+            ("radio", "Radio", "audio-headphones-symbolic",
+             self._detail_radio_page(item)),
+            ("sky", "Cielo", "starred-symbolic",
+             self._detail_sky_page(item)),
+            ("listen", "Escucha", "media-playback-start-symbolic",
+             self._detail_listen_page(item)),
+        )
+        for nombre, titulo, icono, contenido in paginas:
+            page = stack.add_titled(self._pagina_con_scroll(contenido), nombre, titulo)
+            page.set_icon_name(icono)
+
         stack.set_visible_child_name(tab)
         stack.set_vexpand(True)
         toolbar.set_content(stack)
 
-        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        footer.set_margin_top(8)
-        footer.set_margin_bottom(8)
-        footer.set_margin_start(14)
-        footer.set_margin_end(14)
-        save = Gtk.Button(label="Guardar .ics")
-        save.add_css_class("flat")
-        save.connect("clicked", lambda *_: self._save_ics(item))
-        footer.append(save)
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
-        footer.append(spacer)
-        close = Gtk.Button(label="Cerrar")
-        close.connect("clicked", lambda *_: dialog.close())
-        footer.append(close)
-        toolbar.add_bottom_bar(footer)
-
         dialog.set_child(toolbar)
-        self._detail_dialog = dialog
+        self._detail_page = dialog
         dialog.present(self)
         if self._live_item is not None:
             self._update_listen()
             self._live_source = GLib.timeout_add_seconds(1, self._live_tick)
 
-    # ============================================================ modo escucha
+    def _pagina_con_scroll(self, contenido: Gtk.Widget) -> Gtk.Widget:
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.set_child(contenido)
+        scroll.add_css_class("detail-scroll")
+        return scroll
+
+    def _flow(self, maximo: int) -> Gtk.FlowBox:
+        flujo = Gtk.FlowBox()
+        flujo.set_selection_mode(Gtk.SelectionMode.NONE)
+        flujo.set_homogeneous(True)
+        flujo.set_column_spacing(10)
+        flujo.set_row_spacing(10)
+        flujo.set_max_children_per_line(maximo)
+        flujo.set_min_children_per_line(2)
+        flujo.set_valign(Gtk.Align.START)
+        return flujo
+
+    def _card_grande(self, titulo: str, valor: str, detalle: str = "") -> Gtk.Widget:
+        tarjeta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        tarjeta.add_css_class("card")
+        tarjeta.add_css_class("card-big")
+        etiqueta = Gtk.Label(label=titulo)
+        etiqueta.set_xalign(0)
+        etiqueta.add_css_class("caption")
+        etiqueta.add_css_class("dim-label")
+        grande = Gtk.Label(label=valor)
+        grande.set_xalign(0)
+        grande.set_wrap(True)
+        grande.add_css_class("card-value")
+        tarjeta.append(etiqueta)
+        tarjeta.append(grande)
+        if detalle:
+            pie = Gtk.Label(label=detalle)
+            pie.set_xalign(0)
+            pie.set_wrap(True)
+            pie.add_css_class("caption")
+            pie.add_css_class("dim-label")
+            tarjeta.append(pie)
+        return tarjeta
+
+    def _channel_selector(self, channels: list[dict], titulo: str = "Escuchar en",
+                          on_change=None) -> Adw.ComboRow:
+        etiquetas = []
+        for canal in channels:
+            modo = canal.get("mode") or "sin modo"
+            nombre = canal.get("label") or "canal"
+            etiquetas.append(f"{fmt.fmt_freq(canal.get('freq_hz'))} · {modo} · {nombre}")
+        fila = Adw.ComboRow(title=titulo)
+        fila.set_model(Gtk.StringList.new(etiquetas))
+        if on_change is not None:
+            fila.connect("notify::selected", lambda *_: on_change(fila.get_selected()))
+        return fila
+
     @staticmethod
     def _fmt_countdown(seconds: float) -> str:
         total = max(0, int(round(seconds)))
@@ -1001,108 +1386,217 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             return f"{hours:02d}:{minutes:02d}:{secs:02d}"
         return f"{minutes:02d}:{secs:02d}"
 
+
     def _detail_listen_page(self, item: PassItem) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        box.set_margin_top(20)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(18)
         box.set_margin_bottom(18)
         box.set_margin_start(24)
         box.set_margin_end(24)
+        box.set_vexpand(True)
 
+        # 1. franja de estado
+        estado = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        izquierda = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        izquierda.set_hexpand(True)
         self._listen_phase = Gtk.Label(label="Preparación")
         self._listen_phase.set_xalign(0)
         self._listen_phase.set_halign(Gtk.Align.START)
         self._listen_phase.add_css_class("badge")
-        box.append(self._listen_phase)
-
         self._listen_countdown = Gtk.Label(label="")
         self._listen_countdown.set_xalign(0)
         self._listen_countdown.add_css_class("listen-countdown")
-        box.append(self._listen_countdown)
+        izquierda.append(self._listen_phase)
+        izquierda.append(self._listen_countdown)
+        estado.append(izquierda)
 
-        self._listen_now = Gtk.Label(label="")
-        self._listen_now.set_xalign(0)
-        self._listen_now.set_wrap(True)
-        self._listen_now.add_css_class("caption")
-        self._listen_now.add_css_class("dim-label")
-        box.append(self._listen_now)
-
-        status = self.data.status_for(item.sat.norad)
-        if status is not None:
-            caveat = Gtk.Label(
-                label=(
-                    f"{status.label} · {status.source}. "
-                    "El estado del catálogo no garantiza que esté transmitiendo."
-                )
-            )
-            caveat.set_xalign(0)
-            caveat.set_wrap(True)
-            caveat.add_css_class("caption")
-            caveat.add_css_class("dim-label")
-            box.append(caveat)
-
-        box.append(self._heading("Horario"))
-        grid = Gtk.Grid()
-        grid.set_column_spacing(10)
-        grid.set_row_spacing(10)
-        grid.set_column_homogeneous(True)
-        cards = [
-            ("AOS", fmt.fmt_time(item.aos), f"UTC {fmt.fmt_utc(item.aos)}"),
-            ("Punto más alto", fmt.fmt_time(item.tca), f"UTC {fmt.fmt_utc(item.tca)}"),
-            ("LOS", fmt.fmt_time(item.los), f"UTC {fmt.fmt_utc(item.los)}"),
-            ("Duración", fmt.fmt_dur(item.duration_s), f"Altura máx. {item.max_el:.0f}°"),
-        ]
-        for index, (key, value, small) in enumerate(cards):
-            grid.attach(self._stat_card(key, value, small), index % 2, index // 2, 1, 1)
-        box.append(grid)
-
-        channels = item.sat.channels
-        if channels:
-            box.append(self._heading("Frecuencia"))
-            for channel in channels:
-                box.append(self._channel_card(channel))
-            self._listen_doppler = Gtk.Label(label="Doppler actual: —")
-            self._listen_doppler.set_xalign(0)
-            self._listen_doppler.set_wrap(True)
-            self._listen_doppler.add_css_class("caption")
-            self._listen_doppler.add_css_class("dim-label")
-            box.append(self._listen_doppler)
-        else:
-            self._listen_doppler = None
-            hint = Gtk.Label(label="Sin frecuencia registrada para este satélite.")
-            hint.set_xalign(0)
-            hint.set_wrap(True)
-            hint.add_css_class("dim-label")
-            box.append(hint)
-
-        box.append(self._heading("Antes de empezar"))
-        checklist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        for text in (
-            "Antena conectada y con vista despejada",
-            "SDR con ganancia manual y PPM ajustado",
-            "SatDump listo con el pipeline correcto",
-            "Empezar a grabar 2 minutos antes del AOS",
-        ):
-            checklist.append(Gtk.CheckButton(label=text))
-        box.append(checklist)
-
-        if channels:
-            box.append(self._heading("Comando"))
-            box.append(self._command_card(channels[0], item))
-
-        hint = Gtk.Label(
-            label="Este modo prepara la escucha; no graba ni controla el SDR."
+        derecha = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        derecha.set_size_request(340, -1)
+        derecha.set_valign(Gtk.Align.CENTER)
+        fraccion_tca = (item.tca - item.aos) / max(1.0, item.los - item.aos)
+        self._listen_progress = ProgressWithMarks(
+            [(0.0, "A"), (fraccion_tca, "T"), (1.0, "L")]
         )
-        hint.set_xalign(0)
-        hint.set_wrap(True)
-        hint.add_css_class("caption")
-        hint.add_css_class("dim-label")
-        box.append(hint)
+        horario = Gtk.Label(
+            label=(
+                f"Aparece {fmt.fmt_time(item.aos)} · Punto más alto "
+                f"{fmt.fmt_time(item.tca)} · Termina {fmt.fmt_time(item.los)}"
+            )
+        )
+        horario.set_xalign(1)
+        horario.set_wrap(True)
+        horario.add_css_class("caption")
+        horario.add_css_class("dim-label")
+        derecha.append(self._listen_progress)
+        derecha.append(horario)
+        estado.append(derecha)
+        box.append(estado)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_child(box)
-        scroll.set_vexpand(True)
-        return scroll
+        self._listen_extra = Gtk.Label(label="")
+        self._listen_extra.set_xalign(0)
+        self._listen_extra.set_wrap(True)
+        self._listen_extra.add_css_class("listen-extra")
+        box.append(self._listen_extra)
+
+        # 2. tarjeta de canal
+        canales = item.sat.channels
+        self._listen_channel = 0
+        tarjeta = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        tarjeta.add_css_class("card")
+        tarjeta.add_css_class("channel-card")
+        izquierda2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        izquierda2.set_hexpand(True)
+        comando = ""
+        if canales:
+            self._listen_selector = self._channel_selector(
+                canales, on_change=self._on_listen_channel
+            )
+            izquierda2.append(self._listen_selector)
+            self._listen_channel_note = Gtk.Label(
+                label=self._channel_note(canales[0], len(canales))
+            )
+            self._listen_channel_note.set_xalign(0)
+            self._listen_channel_note.add_css_class("caption")
+            self._listen_channel_note.add_css_class("dim-label")
+            izquierda2.append(self._listen_channel_note)
+            comando = fmt.command_for(canales[0], item)
+        else:
+            self._listen_selector = None
+            self._listen_channel_note = None
+            aviso = Gtk.Label(label="Sin frecuencia registrada para este satélite.")
+            aviso.set_xalign(0)
+            aviso.set_wrap(True)
+            aviso.add_css_class("dim-label")
+            izquierda2.append(aviso)
+
+        derecha2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        derecha2.set_halign(Gtk.Align.END)
+        derecha2.set_valign(Gtk.Align.CENTER)
+        etiqueta = Gtk.Label(label="Frecuencia actual")
+        etiqueta.set_xalign(1)
+        etiqueta.add_css_class("caption")
+        etiqueta.add_css_class("dim-label")
+        self._listen_freq_value = Gtk.Label(
+            label=fmt.fmt_freq(canales[0]["freq_hz"]) if canales else "—"
+        )
+        self._listen_freq_value.set_xalign(1)
+        self._listen_freq_value.add_css_class("listen-freq")
+        self._listen_doppler = Gtk.Label(label="(Doppler —)")
+        self._listen_doppler.set_xalign(1)
+        self._listen_doppler.add_css_class("caption")
+        self._listen_doppler.add_css_class("dim-label")
+        derecha2.append(etiqueta)
+        derecha2.append(self._listen_freq_value)
+        derecha2.append(self._listen_doppler)
+        tarjeta.append(izquierda2)
+        tarjeta.append(derecha2)
+        box.append(tarjeta)
+
+        # 3. tarjeta de comando
+        cabecera = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        cabecera.append(self._heading("Comando"))
+        relleno = Gtk.Box()
+        relleno.set_hexpand(True)
+        cabecera.append(relleno)
+        self._listen_copy_btn = Gtk.Button(label="Copiar")
+        self._listen_copy_btn.add_css_class("suggested-action")
+        self._listen_copy_btn.set_sensitive(bool(comando))
+        self._listen_copy_btn.connect(
+            "clicked", lambda *_: self._copy(self._listen_command_label.get_text(),
+                                             self._listen_copy_btn)
+        )
+        cabecera.append(self._listen_copy_btn)
+        box.append(cabecera)
+
+        tarjeta_cmd = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        tarjeta_cmd.add_css_class("command")
+        self._listen_command_label = Gtk.Label(label=comando)
+        self._listen_command_label.set_xalign(0)
+        self._listen_command_label.set_wrap(True)
+        self._listen_command_label.set_selectable(True)
+        self._listen_command_label.add_css_class("mono")
+        tarjeta_cmd.append(self._listen_command_label)
+        box.append(tarjeta_cmd)
+
+        # 4. pie: checklist plegable + estado del catálogo
+        relleno_vertical = Gtk.Box()
+        relleno_vertical.set_vexpand(True)
+        box.append(relleno_vertical)
+        pie = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        pie.set_valign(Gtk.Align.CENTER)
+        self._check_buttons = []
+        self._listen_checklist = Gtk.Expander()
+        self._listen_checklist.set_hexpand(True)
+        self._listen_checklist.set_expanded(self._checklist_open)
+        contenido = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        contenido.set_margin_top(6)
+        for texto in CHECKLIST:
+            check = Gtk.CheckButton(label=texto)
+            check.connect("toggled", lambda *_: self._update_checklist_label())
+            self._check_buttons.append(check)
+            contenido.append(check)
+        self._listen_checklist.set_child(contenido)
+        self._listen_checklist.connect("notify::expanded", self._on_checklist_expanded)
+        self._update_checklist_label()
+        pie.append(self._listen_checklist)
+
+        info = self.data.status_for(item.sat.norad)
+        texto_estado = (
+            f"{info.label} según {info.source}"
+            if info is not None
+            else "Estado del catálogo no disponible"
+        )
+        estado_sat = Gtk.Label(label=texto_estado)
+        estado_sat.set_xalign(1)
+        estado_sat.set_wrap(True)
+        estado_sat.set_max_width_chars(28)
+        estado_sat.add_css_class("caption")
+        estado_sat.add_css_class("dim-label")
+        pie.append(estado_sat)
+        box.append(pie)
+        return box
+
+    def _channel_note(self, canal: dict, total: int) -> str:
+        partes: list[str] = []
+        if total > 1:
+            restantes = total - 1
+            partes.append(
+                "1 canal más en el selector" if restantes == 1
+                else f"{restantes} canales más en el selector"
+            )
+        if canal.get("uplink_hz"):
+            partes.append(f"Subida {fmt.fmt_freq(canal['uplink_hz'])}")
+        if canal.get("tone_hz"):
+            tono = f"{canal['tone_hz']:.1f}".replace(".", ",")
+            partes.append(f"Tono {tono} Hz")
+        return " · ".join(partes) if partes else "Canal principal"
+
+    def _on_listen_channel(self, indice: int) -> None:
+        item = self._live_item
+        if item is None or not item.sat.channels:
+            return
+        if not 0 <= indice < len(item.sat.channels):
+            return
+        self._listen_channel = indice
+        canal = item.sat.channels[indice]
+        if self._listen_channel_note is not None:
+            self._listen_channel_note.set_text(
+                self._channel_note(canal, len(item.sat.channels))
+            )
+        if self._listen_command_label is not None:
+            self._listen_command_label.set_text(fmt.command_for(canal, item))
+        self._update_listen()
+
+    def _update_checklist_label(self) -> None:
+        if self._listen_checklist is None:
+            return
+        hechos = sum(1 for boton in self._check_buttons if boton.get_active())
+        self._listen_checklist.set_label(f"Checklist · {hechos} de {len(CHECKLIST)}")
+
+    def _on_checklist_expanded(self, expander: Gtk.Expander, _pspec) -> None:
+        self._checklist_open = bool(expander.get_expanded())
+        self._save_config()
+
 
     def _update_listen(self, now: float | None = None) -> None:
         item = self._live_item
@@ -1110,48 +1604,66 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             item is None
             or self._listen_phase is None
             or self._listen_countdown is None
-            or self._listen_now is None
+            or self._listen_extra is None
         ):
             return
-        now = time.time() if now is None else now
-        if now < item.aos:
+        ahora = time.time() if now is None else now
+        fraccion = min(1.0, max(0.0, (ahora - item.aos) / max(1.0, item.los - item.aos)))
+        if self._listen_progress is not None:
+            self._listen_progress.set_fraction(fraccion)
+
+        canales = item.sat.channels
+        base = None
+        if canales and 0 <= self._listen_channel < len(canales):
+            base = canales[self._listen_channel].get("freq_hz")
+
+        actual = base
+        desvio = None
+        if ahora < item.aos:
             self._listen_phase.set_text("PREPARACIÓN")
             self._listen_countdown.set_text(
-                f"AOS en {self._fmt_countdown(item.aos - now)}"
+                f"Aparece en {self._fmt_countdown(item.aos - ahora)}"
             )
-            self._listen_now.set_text(
-                f"El paso empieza a las {fmt.fmt_time(item.aos)}. "
-                f"TCA a las {fmt.fmt_time(item.tca)} · altura máxima {item.max_el:.0f}°."
+            extra = (
+                f"{fmt.fmt_deg(item.az_aos, 0)} al aparecer · hasta "
+                f"{fmt.fmt_deg(item.max_el)} · {fmt.fmt_dur(item.duration_s)}"
             )
-            if self._listen_doppler is not None:
-                self._listen_doppler.set_text("Doppler actual: —")
-        elif now <= item.los:
+        elif ahora <= item.los:
             self._listen_phase.set_text("EN VIVO")
             self._listen_countdown.set_text(
-                f"Quedan {self._fmt_countdown(item.los - now)}"
+                f"Quedan {self._fmt_countdown(item.los - ahora)}"
             )
-            look = look_at(item.sat.satrec, item.obs, now)
+            look = look_at(item.sat.satrec, item.obs, ahora)
             if look is None:
-                self._listen_now.set_text("No se pudo calcular la posición actual.")
+                extra = "No se pudo calcular la posición actual."
+                actual = base
             else:
                 az, el, rng, rate = look
-                self._listen_now.set_text(
-                    f"az {az:.0f}° · el {el:.0f}° · {rng:.0f} km"
+                extra = (
+                    f"{az:.0f}° · {el:.0f}° sobre el horizonte · {fmt.fmt_km(rng)} · "
+                    f"{fraccion * 100:.0f} % del paso"
                 )
-                if self._listen_doppler is not None and item.freq_hz:
-                    shift = -rate / C_KM_S * item.freq_hz
-                    self._listen_doppler.set_text(
-                        f"Frecuencia actual: {fmt.fmt_freq(round(item.freq_hz + shift))} "
-                        f"· {fmt.fmt_dop(shift)}"
-                    )
+                if base:
+                    desvio = -rate / C_KM_S * base
+                    actual = base + desvio
+                else:
+                    actual = None
         else:
             self._listen_phase.set_text("TERMINADO")
             self._listen_countdown.set_text("Paso completado")
-            self._listen_now.set_text(
-                f"El paso terminó a las {fmt.fmt_time(item.los)}."
+            extra = f"Terminó a las {fmt.fmt_time(item.los)}."
+            actual = base
+
+        self._listen_extra.set_text(extra)
+        if self._listen_freq_value is not None:
+            self._listen_freq_value.set_text(
+                fmt.fmt_freq(round(actual)) if actual else "—"
             )
-            if self._listen_doppler is not None:
-                self._listen_doppler.set_text("Doppler actual: —")
+        if self._listen_doppler is not None:
+            self._listen_doppler.set_text(
+                f"(Doppler {fmt.fmt_dop(desvio)})" if desvio is not None else "(Doppler —)"
+            )
+
 
     def _stop_live(self) -> None:
         source = self._live_source
@@ -1167,8 +1679,17 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._live_progress = None
         self._listen_phase = None
         self._listen_countdown = None
-        self._listen_now = None
+        self._listen_extra = None
         self._listen_doppler = None
+        self._listen_progress = None
+        self._listen_freq_value = None
+        self._listen_selector = None
+        self._listen_checklist = None
+        self._listen_command_label = None
+        self._listen_channel_note = None
+        self._listen_freq_value = None
+        self._check_buttons = []
+        self._listen_channel = 0
 
     def _live_tick(self) -> bool:
         item = self._live_item
@@ -1177,7 +1698,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         badge = self._live_badge
         label = self._live_label
         progress = self._live_progress
-        dialog = self._detail_dialog
+        pagina = self._detail_page
         if (
             item is None
             or sky is None
@@ -1185,8 +1706,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             or badge is None
             or label is None
             or progress is None
-            or dialog is None
-            or not dialog.get_mapped()
+            or pagina is None
+            or not pagina.get_mapped()
         ):
             self._live_source = None
             self._stop_live()
@@ -1234,29 +1755,30 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         progress.set_fraction(fraction)
         return True
 
+
     def _detail_summary_page(self, item: PassItem, stack: Adw.ViewStack) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        box.set_margin_top(20)
+        box.set_margin_top(18)
         box.set_margin_bottom(18)
         box.set_margin_start(24)
         box.set_margin_end(24)
         box.set_vexpand(True)
 
-        now = time.time()
-        if item.aos <= now <= item.los:
-            state = "En curso"
-        elif now < item.aos:
-            minutes = max(1, round((item.aos - now) / 60.0))
-            state = (
-                f"Empieza en {minutes} min"
-                if minutes < 60
+        ahora = time.time()
+        if item.aos <= ahora <= item.los:
+            estado = "En curso"
+        elif ahora < item.aos:
+            minutos = max(1, round((item.aos - ahora) / 60.0))
+            estado = (
+                f"Empieza en {minutos} min"
+                if minutos < 60
                 else f"Empieza {fmt.relative_day(item.aos)} a las {fmt.fmt_time(item.aos)}"
             )
         else:
-            state = "Pasado"
-        badge = Gtk.Label(label=state)
+            estado = "Pasado"
+        badge = Gtk.Label(label=estado)
         badge.set_xalign(0)
-        badge.set_halign(Gtk.Align.START)
+        badge.set_valign(Gtk.Align.CENTER)
         badge.add_css_class("badge")
         badges = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         badges.append(badge)
@@ -1265,94 +1787,84 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             badges.append(status_badge)
         box.append(badges)
 
-        summary = Gtk.Label()
-        summary.set_markup(fmt.summary(item))
-        summary.set_wrap(True)
-        summary.set_xalign(0)
-        summary.add_css_class("summary")
-        box.append(summary)
+        texto = Gtk.Label(label=fmt.summary(item))
+        texto.set_wrap(True)
+        texto.set_xalign(0)
+        texto.add_css_class("summary-text")
+        box.append(texto)
 
-        status = self.data.status_for(item.sat.norad)
-        if status is not None:
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-            card.add_css_class("status-card")
+        direccion = (
+            f"{fmt.compass_word(item.az_aos).capitalize()} → "
+            f"{fmt.compass_word(item.az_los).capitalize()}"
+        )
+        tarjetas = self._flow(3)
+        tarjetas.append(self._card_grande(
+            "Cuándo",
+            f"{fmt.fmt_time(item.aos)} → {fmt.fmt_time(item.los)}",
+            f"{fmt.fmt_dur(item.duration_s)} · más alto a las {fmt.fmt_time(item.tca)}",
+        ))
+        tarjetas.append(self._card_grande(
+            "Por dónde",
+            direccion,
+            f"hasta {fmt.fmt_deg(item.max_el)} · {fmt.pass_quality(item.max_el)}",
+        ))
+        if item.freq_hz:
+            valor = fmt.fmt_freq(item.freq_hz)
+            if item.mode:
+                valor += f" · {item.mode}"
+            if item.doppler_max_hz is not None:
+                desvio = f"{abs(item.doppler_max_hz) / 1000:.1f}".replace(".", ",")
+                detalle = f"Doppler ±{desvio} kHz"
+            else:
+                detalle = "sin datos de Doppler"
+        else:
+            valor = "Sin frecuencia"
+            detalle = "no hay frecuencia registrada"
+        tarjetas.append(self._card_grande("Con qué", valor, detalle))
+        box.append(tarjetas)
 
-            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            badge = self._status_badge(item.sat.norad)
-            if badge is not None:
-                header.append(badge)
-            title = Gtk.Label(label=status.label)
-            title.set_xalign(0)
-            title.add_css_class("status-title")
-            header.append(title)
-            card.append(header)
-
-            source = Gtk.Label(
-                label=(
-                    f"{status.source}"
-                    + (
-                        f" · {fmt.fmt_age(max(0.0, time.time() - status.fetched_at))}"
-                        if status.fetched_at
-                        else ""
-                    )
-                )
-            )
-            source.set_xalign(0)
-            source.set_wrap(True)
-            source.add_css_class("caption")
-            source.add_css_class("dim-label")
-            card.append(source)
-
-            caveat = Gtk.Label(
-                label="El estado del catálogo no garantiza que el satélite esté transmitiendo."
-            )
-            caveat.set_xalign(0)
-            caveat.set_wrap(True)
-            caveat.add_css_class("caption")
-            caveat.add_css_class("dim-label")
-            card.append(caveat)
-
-            if status.decay_date:
-                decay = Gtk.Label(label=f"Fecha de decaimiento: {status.decay_date}")
-                decay.set_xalign(0)
-                decay.set_wrap(True)
-                decay.add_css_class("caption")
-                decay.add_css_class("dim-label")
-                card.append(decay)
-
-            box.append(card)
-
-        box.append(self._heading("Horario"))
+        box.append(self._heading("Más datos"))
         box.append(self._stats_grid(item))
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        acciones = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         listen = Gtk.Button(label="Modo escucha")
         listen.add_css_class("suggested-action")
         listen.connect("clicked", lambda *_: stack.set_visible_child_name("listen"))
-        actions.append(listen)
+        acciones.append(listen)
         radio = Gtk.Button(label="Ver radio")
         radio.add_css_class("flat")
         radio.connect("clicked", lambda *_: stack.set_visible_child_name("radio"))
-        sky = Gtk.Button(label="Ver cielo")
-        sky.add_css_class("flat")
-        sky.connect("clicked", lambda *_: stack.set_visible_child_name("sky"))
-        actions.append(radio)
-        actions.append(sky)
-        box.append(actions)
+        acciones.append(radio)
+        cielo = Gtk.Button(label="Ver cielo")
+        cielo.add_css_class("flat")
+        cielo.connect("clicked", lambda *_: stack.set_visible_child_name("sky"))
+        acciones.append(cielo)
+        box.append(acciones)
 
-        hint = Gtk.Label(
-            label="Usa las pestañas Radio y Cielo para frecuencias, comandos y trayectoria."
-        )
-        hint.set_xalign(0)
-        hint.set_wrap(True)
-        hint.add_css_class("caption")
-        hint.add_css_class("dim-label")
-        box.append(hint)
+        estado_sat = self.data.status_for(item.sat.norad)
+        if estado_sat is not None:
+            cuando = (
+                f" · {fmt.fmt_age(max(0.0, time.time() - estado_sat.fetched_at))}"
+                if estado_sat.fetched_at
+                else ""
+            )
+            fuente = Gtk.Label(
+                label=(
+                    f"{estado_sat.label} según {estado_sat.source}{cuando}. "
+                    "El catálogo no garantiza que esté transmitiendo."
+                )
+            )
+            fuente.set_xalign(0)
+            fuente.set_wrap(True)
+            fuente.add_css_class("caption")
+            fuente.add_css_class("dim-label")
+            box.append(fuente)
         return box
+
 
     def _detail_radio_page(self, item: PassItem) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        box.set_margin_top(20)
+        box.set_margin_top(18)
         box.set_margin_bottom(18)
         box.set_margin_start(24)
         box.set_margin_end(24)
@@ -1369,12 +1881,7 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
 
         selector = None
         if len(channels) > 1:
-            labels = [
-                f"{fmt.fmt_freq(ch.get('freq_hz'))} · {ch.get('mode') or 'sin modo'}"
-                for ch in channels
-            ]
-            selector = Adw.ComboRow(title="Frecuencia")
-            selector.set_model(Gtk.StringList.new(labels))
+            selector = self._channel_selector(channels, titulo="Frecuencia")
             box.append(selector)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -1410,16 +1917,17 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         rebuild()
         return box
 
+
     def _detail_sky_page(self, item: PassItem) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        box.set_margin_top(20)
+        box.set_margin_top(18)
         box.set_margin_bottom(18)
         box.set_margin_start(24)
         box.set_margin_end(24)
         box.set_vexpand(True)
 
         hint = Gtk.Label(
-            label="El centro del círculo polar es el cenit; el borde es el horizonte."
+            label="Centro: cenit · borde: horizonte. El tramo punteado está por recorrer."
         )
         hint.set_xalign(0)
         hint.set_wrap(True)
@@ -1427,12 +1935,13 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         hint.add_css_class("dim-label")
         box.append(hint)
 
-        now = time.time()
+        ahora = time.time()
         live_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         live_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self._live_badge = Gtk.Label(label="—")
         self._live_badge.set_xalign(0)
         self._live_badge.set_halign(Gtk.Align.START)
+        self._live_badge.set_valign(Gtk.Align.CENTER)
         self._live_badge.add_css_class("badge")
         self._live_label = Gtk.Label(label="")
         self._live_label.set_xalign(0)
@@ -1442,8 +1951,11 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._live_label.add_css_class("dim-label")
         live_top.append(self._live_badge)
         live_top.append(self._live_label)
-        self._live_progress = Gtk.ProgressBar()
-        self._live_progress.set_show_text(False)
+
+        fraccion_tca = (item.tca - item.aos) / max(1.0, item.los - item.aos)
+        self._live_progress = ProgressWithMarks(
+            [(0.0, "A"), (fraccion_tca, "T"), (1.0, "L")]
+        )
         live_box.append(live_top)
         live_box.append(self._live_progress)
         box.append(live_box)
@@ -1453,18 +1965,45 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._live_item = item
         self._live_sky = SkyPlot(points, item)
         self._live_elev = ElevationPlot(points, item)
-        if item.aos <= now <= item.los:
+
+        tarjeta_polar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        tarjeta_polar.add_css_class("card")
+        tarjeta_polar.set_hexpand(True)
+        tarjeta_polar.append(self._live_sky)
+        tarjeta_altura = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        tarjeta_altura.add_css_class("card")
+        tarjeta_altura.set_hexpand(True)
+        tarjeta_altura.append(self._live_elev)
+        plots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        plots.set_vexpand(True)
+        plots.append(tarjeta_polar)
+        plots.append(tarjeta_altura)
+        box.append(plots)
+
+        leyenda = Gtk.Label(
+            label=(
+                "A · aparece · T · punto más alto · L · se va · "
+                "Centro: cenit · borde: horizonte"
+            )
+        )
+        leyenda.set_xalign(0)
+        leyenda.set_wrap(True)
+        leyenda.add_css_class("caption")
+        leyenda.add_css_class("dim-label")
+        box.append(leyenda)
+
+        if item.aos <= ahora <= item.los:
             self._live_badge.set_text("EN VIVO")
             self._live_label.set_text("Actualizando posición…")
             self._live_progress.set_fraction(
-                min(1.0, max(0.0, (now - item.aos) / max(1.0, item.los - item.aos)))
+                min(1.0, max(0.0, (ahora - item.aos) / max(1.0, item.los - item.aos)))
             )
-        elif now < item.aos:
+        elif ahora < item.aos:
             self._live_badge.set_text("PRÓXIMO")
-            minutes = max(1, round((item.aos - now) / 60.0))
+            minutos = max(1, round((item.aos - ahora) / 60.0))
             self._live_label.set_text(
-                f"Empieza en {minutes} min · {fmt.fmt_time(item.aos)}"
-                if minutes < 60
+                f"Empieza en {minutos} min · {fmt.fmt_time(item.aos)}"
+                if minutos < 60
                 else f"Empieza {fmt.relative_day(item.aos)} a las {fmt.fmt_time(item.aos)}"
             )
             self._live_progress.set_fraction(0.0)
@@ -1472,22 +2011,6 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self._live_badge.set_text("TERMINADO")
             self._live_label.set_text("El paso ya terminó.")
             self._live_progress.set_fraction(1.0)
-
-        plots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
-        plots.set_halign(Gtk.Align.CENTER)
-        plots.set_valign(Gtk.Align.CENTER)
-        plots.set_vexpand(True)
-        plots.append(self._live_sky)
-        plots.append(self._live_elev)
-        box.append(plots)
-
-        legend = Gtk.Label(
-            label="Verde: aparición · Ámbar: punto más alto · Rojo: salida"
-        )
-        legend.set_xalign(0)
-        legend.add_css_class("caption")
-        legend.add_css_class("dim-label")
-        box.append(legend)
         return box
 
     def _heading(self, text: str) -> Gtk.Label:
@@ -1516,26 +2039,22 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             card.append(sub)
         return card
 
+
     def _stats_grid(self, item: PassItem) -> Gtk.Widget:
-        grid = Gtk.Grid()
-        grid.set_column_spacing(10)
-        grid.set_row_spacing(10)
-        grid.set_column_homogeneous(True)
+        """Datos que no aparecen ya en las tres tarjetas del resumen."""
+        grid = self._flow(3)
 
         dir_a = fmt.compass_word(item.az_aos).capitalize()
         dir_l = fmt.compass_word(item.az_los).capitalize()
+        edad = f"{item.sat.tle_age_days:.1f}".replace(".", ",")
         cards = [
-            ("Aparece", fmt.fmt_time(item.aos), fmt.relative_day(item.aos)),
-            ("Punto más alto", fmt.fmt_time(item.tca), fmt.relative_day(item.tca)),
-            ("Termina", fmt.fmt_time(item.los), fmt.relative_day(item.los)),
-            ("Duración", fmt.fmt_dur(item.duration_s), ""),
-            ("Altura máxima", f"{item.max_el:.1f}°", ""),
-            ("Dirección", f"{dir_a} → {dir_l}", f"{round(item.az_aos)}° → {round(item.az_los)}°"),
-            ("Distancia en el punto más alto", f"{item.range_tca:.0f} km", ""),
-            ("TLE", f"{item.sat.tle_age_days:.1f} días", ""),
+            ("Distancia en el punto más alto", fmt.fmt_km(item.range_tca), ""),
+            ("Dirección", f"{dir_a} → {dir_l}",
+             f"{round(item.az_aos)}° → {round(item.az_los)}°"),
+            ("TLE", f"{edad} días", ""),
         ]
-        for index, (key, value, small) in enumerate(cards):
-            grid.attach(self._stat_card(key, value, small), index % 4, index // 4, 1, 1)
+        for key, value, small in cards:
+            grid.append(self._stat_card(key, value, small))
         return grid
 
     def _channel_card(self, channel: dict) -> Gtk.Widget:
@@ -1642,23 +2161,36 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._alert("Calendario guardado", path)
 
     # ============================================================ geocodificación
+
     def geocode(self) -> None:
         typed = self.address_row.get_text().strip()
         display = fmt.short_address(self._address_full)
         query = self._address_full if self._address_full and typed == display else typed
         if len(query) < 3:
-            self._alert("Dirección corta", "Escribe una dirección de al menos 3 caracteres.")
+            self._toast("Escribe una dirección de al menos 3 caracteres.")
             return
-        self.address_row.set_sensitive(False)
-        self.search_btn.set_sensitive(False)
+        if self._geo_busy:
+            return
+        self._set_geo_busy(True)
         self._run_bg(lambda: self.data.geocoder.search(query), self._on_geo_results)
 
+    def _set_geo_busy(self, busy: bool) -> None:
+        self._geo_busy = busy
+        self.address_row.set_sensitive(not busy)
+        self.search_btn.set_sensitive(not busy)
+        self.geo_spinner.set_visible(busy)
+        if busy:
+            self.geo_spinner.start()
+            self.search_btn.set_label("Buscando…")
+        else:
+            self.geo_spinner.stop()
+            self.search_btn.set_label("Buscar")
+
     def _on_geo_results(self, results: object) -> None:
-        self.address_row.set_sensitive(True)
-        self.search_btn.set_sensitive(True)
+        self._set_geo_busy(False)
         self._geo_results = list(results)  # type: ignore[arg-type]
         if not self._geo_results:
-            self._alert("Sin resultados", "No se encontró esa dirección. Prueba con más detalle.")
+            self._toast("No se encontró esa dirección. Prueba con más detalle.")
             return
 
         child = self.geo_list.get_first_child()
@@ -1666,25 +2198,73 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self.geo_list.remove(child)
             child = self.geo_list.get_first_child()
 
-        for result in self._geo_results:
-            row = Gtk.ListBoxRow()
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-            box.set_margin_top(8)
-            box.set_margin_bottom(8)
-            box.set_margin_start(10)
-            box.set_margin_end(10)
-            name = Gtk.Label(label=result["name"])
-            name.set_xalign(0)
-            name.set_wrap(True)
-            coords = Gtk.Label(label=f"{result['lat']:.4f}, {result['lon']:.4f}")
-            coords.set_xalign(0)
-            coords.add_css_class("caption")
-            coords.add_css_class("dim-label")
-            box.append(name)
-            box.append(coords)
-            row.set_child(box)
-            self.geo_list.append(row)
+        for resultado in self._geo_results:
+            self.geo_list.append(self._geo_row(resultado))
+
+        fuente = self._geo_results[0].get("source") or "Nominatim"
+        total = len(self._geo_results)
+        plural = "" if total == 1 else "s"
+        self.geo_source.set_text(f"Fuente: {fuente} · {total} resultado{plural}")
         self.geo_popover.popup()
+
+    def _geo_row(self, resultado: dict) -> Gtk.ListBoxRow:
+        fila = Gtk.ListBoxRow()
+        caja = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        caja.set_margin_top(8)
+        caja.set_margin_bottom(8)
+        caja.set_margin_start(10)
+        caja.set_margin_end(10)
+
+        icono = Gtk.Image.new_from_icon_name(fmt.geo_icon(resultado.get("type")))
+        icono.set_valign(Gtk.Align.START)
+        caja.append(icono)
+
+        textos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        textos.set_hexpand(True)
+
+        partes = [
+            parte.strip()
+            for parte in str(resultado.get("name", "")).split(",")
+            if parte.strip()
+        ]
+        corto = partes[0] if partes else str(resultado.get("name", ""))
+
+        linea1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        nombre = Gtk.Label(label=corto)
+        nombre.set_xalign(0)
+        nombre.set_ellipsize(Pango.EllipsizeMode.END)
+        nombre.add_css_class("geo-name")
+        linea1.append(nombre)
+        etiqueta = fmt.type_label(resultado.get("type"))
+        if etiqueta:
+            tipo = Gtk.Label(label=etiqueta)
+            tipo.add_css_class("chip")
+            tipo.set_valign(Gtk.Align.CENTER)
+            linea1.append(tipo)
+        textos.append(linea1)
+
+        if len(partes) > 1:
+            jerarquia = Gtk.Label(label=" · ".join(partes[1:]))
+            jerarquia.set_xalign(0)
+            jerarquia.set_wrap(True)
+            jerarquia.set_max_width_chars(52)
+            jerarquia.add_css_class("caption")
+            jerarquia.add_css_class("dim-label")
+            textos.append(jerarquia)
+
+        coordenadas = fmt.fmt_coords(float(resultado["lat"]), float(resultado["lon"]))
+        distancia = resultado.get("distance_m")
+        if distancia:
+            coordenadas += f" · a {round(distancia)} m del anterior"
+        ubicacion = Gtk.Label(label=coordenadas)
+        ubicacion.set_xalign(0)
+        ubicacion.add_css_class("mono")
+        ubicacion.add_css_class("caption")
+        textos.append(ubicacion)
+
+        caja.append(textos)
+        fila.set_child(caja)
+        return fila
 
     def _on_geo_row_activated(self, _list: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
         index = row.get_index()

@@ -3,13 +3,53 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.10.0] - 2026-11-01
+
+### Añadido
+
+- **Pestaña Escucha rediseñada**: franja de estado con cuenta atrás, progreso y
+  marcas A/T/L; selector de canal compartido con Radio; comando con `Copiar`
+  arriba; y checklist plegable que recuerda si estaba abierta. El contenido pasa
+  de 1 066 a 380 px, así que todo cabe sin desplazamiento.
+- **Filtro «Solo ≥60°»** y **orden por hora, altura o duración** en la lista,
+  ambos recordados en la configuración.
+- **«Usar mi ubicación»** con GeoClue2 en el primer uso y en el panel lateral,
+  con confirmación antes de calcular y avisos claros si no hay permiso.
+- **Direcciones deduplicadas**: tipo traducido con icono, jerarquía
+  provincia/región/país, distancia al resultado anterior y fuente al pie.
+- **Cielo adaptado al tema**: paleta clara y oscura, cada gráfico en su tarjeta,
+  marcadores A/T/L con forma y letra, tramo pendiente punteado y eje de tiempos
+  etiquetado.
+- El detalle se ajusta al tamaño de la ventana y las cuatro pestañas tienen
+  desplazamiento propio.
 
 ### Cambiado
 
-- El repositorio queda dedicado exclusivamente a PasoOrbital Desktop.
-- Se retiraron la web local, el CLI, la validación con Skyfield y sus archivos
-  de configuración del árbol actual. Permanecen en el historial de Git.
+- La fila de la lista usa columnas fijas: hora (96 px), nombre con el chip
+  «paso alto», datos alineados a la derecha (210 px) y chevron.
+- El estado del satélite se muestra con un punto de color y el texto corto, con
+  el detalle SATCAT en el tooltip.
+- Resumen en tres tarjetas (Cuándo, Por dónde, Con qué) y la frase del paso como
+  texto secundario, sin negritas ni artículo.
+- Frecuencias siempre con tres decimales y coma decimal en toda la interfaz.
+- «Guardar .ics» pasa al menú de la cabecera del detalle; desaparece el pie del
+  diálogo.
+- El repositorio queda dedicado exclusivamente a PasoOrbital Desktop: se
+  retiraron la web local, el CLI, la validación con Skyfield y sus archivos de
+  configuración. Permanecen en el historial de Git.
+
+### Corregido
+
+- La pestaña Escucha ya no esconde el Doppler, la checklist ni el comando.
+- El detalle no se recorta con texto al 125 % ni en ventanas de 980×640.
+- Las etiquetas de los gráficos pasan de 2,5:1 a 12,3:1 de contraste en tema
+  claro.
+- La frecuencia queda alineada en todas las filas, con y sin «paso alto».
+- El manual y los metadatos de AppStream mencionan la pestaña Escucha.
+
+### Empaquetado
+
+- Nuevos paquetes `.deb` y `.rpm` con la versión 1.10.0.
 
 ## [1.9.2] - 2026-10-31
 
@@ -54,17 +94,6 @@ y versionado [SemVer](https://semver.org/lang/es/).
 ### Empaquetado
 
 - Nuevos paquetes `.deb` y `.rpm` con la versión 1.9.1.
-
-## [Sin publicar]
-
-### Corregido
-
-- El RPM instalaba los módulos en `/usr/lib/python3.13/site-packages`, una ruta
-  ligada a la versión de Python del equipo que lo construía. En Fedora 43/44
-  (Python 3.14) la app fallaba con `ModuleNotFoundError: No module named
-  'pasoorbital_gui'`. Ahora se instalan en `/usr/lib/pasoorbital`, que no
-  depende de la versión de Python, y los lanzadores añaden esa ruta a
-  `sys.path`. El RPM pasa a ser `1.9.0-2`.
 
 ## [1.9.0] - 2026-10-18
 

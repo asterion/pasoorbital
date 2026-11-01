@@ -2,43 +2,102 @@
   font-family: monospace;
 }
 
-.summary {
-  background-color: alpha(@accent_bg_color, 0.10);
-  border: 1px solid alpha(@accent_color, 0.28);
-  border-radius: 12px;
-  padding: 14px 16px;
-  font-size: 1.02em;
-}
-
-.stat {
+/* ---------------------------------------------------------------- tarjetas */
+.card {
   background-color: @card_bg_color;
   border: 1px solid @borders;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
-.stat-value {
-  font-family: monospace;
-  font-size: 1.06em;
+.card-big .card-value {
+  font-size: 1.18em;
+  font-weight: 700;
 }
 
-.badge {
-  background-color: alpha(@accent_bg_color, 0.18);
-  color: @accent_color;
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 0.85em;
-  font-weight: 600;
+.summary-text {
+  font-size: 0.98em;
+  color: alpha(@window_fg_color, 0.92);
 }
 
 .command {
   background-color: @card_bg_color;
   border: 1px solid @borders;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
+/* ------------------------------------------------------------ fila de pasos */
+.pass-grid {
+  padding: 2px 4px;
+}
 
+.pass-time {
+  font-family: monospace;
+  font-size: 1.02em;
+  font-weight: 700;
+  color: @window_fg_color;
+}
+
+.pass-name {
+  font-size: 1.02em;
+  font-weight: 600;
+}
+
+.pass-sub {
+  font-size: 0.92em;
+  color: alpha(@window_fg_color, 0.88);
+}
+
+.pass-status {
+  font-size: 0.85em;
+  color: alpha(@window_fg_color, 0.86);
+}
+
+.pass-data {
+  font-family: monospace;
+  font-size: 0.88em;
+  color: alpha(@window_fg_color, 0.90);
+}
+
+.chip {
+  background-color: alpha(@accent_bg_color, 0.16);
+  color: @accent_color;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.chip-live {
+  background-color: alpha(@accent_color, 0.24);
+}
+
+.status-dot {
+  font-size: 0.70em;
+}
+
+.status-dot-operational {
+  color: @success_color;
+}
+
+.status-dot-partial,
+.status-dot-standby,
+.status-dot-spare,
+.status-dot-extended {
+  color: @warning_color;
+}
+
+.status-dot-nonoperational,
+.status-dot-decayed {
+  color: @error_color;
+}
+
+.status-dot-unknown {
+  color: alpha(@window_fg_color, 0.55);
+}
+
+/* ------------------------------------------------------------- resaltados */
 @keyframes pass-pulse {
   0% { background-color: alpha(@accent_bg_color, 0.08); }
   50% { background-color: alpha(@accent_bg_color, 0.22); }
@@ -47,12 +106,59 @@
 
 .pass-row.soon {
   animation: pass-pulse 1.8s ease-in-out infinite;
-  box-shadow: inset 4px 0 0 0 @accent_color;
+}
+
+.pass-row.soon-static {
+  box-shadow: inset 3px 0 0 0 @accent_color;
+  background-color: alpha(@accent_bg_color, 0.10);
 }
 
 .pass-row.live {
   background-color: alpha(@accent_bg_color, 0.14);
-  box-shadow: inset 4px 0 0 0 @accent_color;
+  box-shadow: inset 3px 0 0 0 @accent_color;
+}
+
+.pass-row.high-pass {
+  background-color: alpha(@accent_bg_color, 0.05);
+}
+
+/* --------------------------------------------------------------- escucha */
+.listen-countdown {
+  font-family: monospace;
+  font-size: 2.05em;
+  font-weight: 700;
+  color: @accent_color;
+}
+
+.listen-extra {
+  font-size: 0.95em;
+  color: alpha(@window_fg_color, 0.90);
+}
+
+.listen-freq {
+  font-family: monospace;
+  font-size: 1.55em;
+  font-weight: 700;
+  color: @accent_color;
+}
+
+.channel-card {
+  padding: 10px 14px;
+}
+
+/* ------------------------------------------------------------ geocodificación */
+.geo-name {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------- estado del satélite */
+.badge {
+  background-color: alpha(@accent_bg_color, 0.18);
+  color: @accent_color;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.85em;
+  font-weight: 600;
 }
 
 .status-badge {
@@ -83,59 +189,21 @@
   color: @window_fg_color;
 }
 
-.status-card {
-  background-color: alpha(@accent_bg_color, 0.06);
-  border: 1px solid alpha(@accent_color, 0.18);
+/* ------------------------------------------------------------ panel lateral */
+.stat {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
   border-radius: 10px;
   padding: 10px 12px;
 }
 
-.status-title {
-  font-weight: 600;
-}
-
-.listen-countdown {
+.stat-value {
   font-family: monospace;
-  font-size: 2.15em;
-  font-weight: 700;
-  color: @accent_color;
-}
-
-/* Los datos secundarios de cada paso son información clave: subir contraste. */
-.pass-row .subtitle,
-.pass-row subtitle {
-  color: alpha(@window_fg_color, 0.88);
-  font-size: 0.94em;
-}
-
-.pass-meta {
-  color: alpha(@window_fg_color, 0.86);
-  font-size: 0.86em;
+  font-size: 1.06em;
 }
 
 .alt-row .subtitle {
   color: alpha(@window_fg_color, 0.86);
-}
-
-
-.pass-time {
-  font-family: monospace;
-  font-size: 1.02em;
-  font-weight: 700;
-  color: @window_fg_color;
-}
-
-.pass-freq {
-  font-weight: 500;
-  font-size: 0.90em;
-  color: alpha(@window_fg_color, 0.90);
-}
-
-.section-heading {
-  font-size: 0.82em;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: alpha(@window_fg_color, 0.82);
 }
 
 .filter-hint,
@@ -147,14 +215,9 @@
   font-size: 0.82em;
 }
 
-.pass-row.high-pass {
-  background-color: alpha(@accent_bg_color, 0.06);
-  box-shadow: inset 4px 0 0 0 @accent_color;
-}
-
-.high-pass-badge {
-  color: @accent_color;
-  font-size: 0.72em;
+.section-heading {
+  font-size: 0.82em;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  color: alpha(@window_fg_color, 0.82);
 }

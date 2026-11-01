@@ -36,6 +36,11 @@
   <url type="homepage">https://github.com/asterion/pasoorbital</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.10.0" date="2026-11-01">
+      <description>
+        <p>Rediseño de la lista, el detalle y el primer uso: pestaña Escucha compacta con progreso y marcas, filas con columnas fijas, gráficos adaptados al tema, «Usar mi ubicación» con GeoClue y direcciones sin duplicados.</p>
+      </description>
+    </release>
     <release version="1.9.2" date="2026-10-31">
       <description>
         <p>Estado SATCAT, modo escucha integrado en el detalle y mejoras de jerarquía en la lista.</p>

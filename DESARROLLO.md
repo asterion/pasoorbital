@@ -1,7 +1,7 @@
 # Desarrollo de PasoOrbital Desktop
 
 > Documento de continuidad del repositorio.
-> Última actualización: 31 de octubre de 2026.
+> Última actualización: 1 de noviembre de 2026 (versión 1.10.0).
 
 ## 1. Alcance
 
@@ -34,6 +34,7 @@ pasoorbital/
 ├── desktop/
 │   ├── pasoorbital_gui/
 │   │   ├── app.py
+│   │   ├── location.py
 │   │   ├── window.py
 │   │   ├── data.py
 │   │   ├── format.py
@@ -84,6 +85,7 @@ PasoOrbitalData
 | Archivo | Responsabilidad |
 | --- | --- |
 | `desktop/pasoorbital_gui/app.py` | `Adw.Application`, acciones, CSS y arranque. |
+| `desktop/pasoorbital_gui/location.py` | Ubicación del sistema con GeoClue2. |
 | `desktop/pasoorbital_gui/window.py` | Ventana, panel, lista, detalle, filtros, avisos y modo escucha. |
 | `desktop/pasoorbital_gui/data.py` | Catálogo, pasos, filtros de vista y estado por satélite. |
 | `desktop/pasoorbital_gui/format.py` | Fechas, direcciones, frecuencias, comandos e ICS. |

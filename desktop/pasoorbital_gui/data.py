@@ -97,6 +97,14 @@ class PassItem:
         )
 
 
+#: Modos de orden de la lista, con su etiqueta para el menú.
+SORT_MODES: dict[str, str] = {
+    "time": "Por hora",
+    "elevation": "Por altura",
+    "duration": "Por duración",
+}
+
+
 def filter_passes(
     items: list[PassItem],
     query: str = "",
@@ -104,6 +112,7 @@ def filter_passes(
     groups: tuple[str, ...] | list[str] = (),
     min_el: float = 0.0,
     limit: float = float("inf"),
+    high_only: bool = False,
 ) -> list[PassItem]:
     """Aplica los filtros de la lista sin volver a calcular órbitas."""
     selected = set(groups)
@@ -116,10 +125,21 @@ def filter_passes(
             continue
         if item.max_el < min_el or item.aos > limit:
             continue
+        if high_only and item.max_el < 60.0:
+            continue
         if needle and needle not in item.sat.name.lower():
             continue
         out.append(item)
     return out
+
+
+def sort_passes(items: list[PassItem], mode: str = "time") -> list[PassItem]:
+    """Ordena los pasos dentro de un grupo (normalmente, un día)."""
+    if mode == "elevation":
+        return sorted(items, key=lambda item: (-item.max_el, item.aos))
+    if mode == "duration":
+        return sorted(items, key=lambda item: (-item.duration_s, item.aos))
+    return sorted(items, key=lambda item: item.aos)
 
 
 class PasoOrbitalData:

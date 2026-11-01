@@ -8,6 +8,7 @@ responde se intenta Photon (Komoot), que también usa datos de OSM.
 from __future__ import annotations
 
 import json
+import math
 import threading
 import time
 import urllib.error
@@ -21,6 +22,50 @@ PHOTON = "https://photon.komoot.io/api/"
 ELEVATION = "https://api.open-meteo.com/v1/elevation"
 CACHE_TTL_S = 30 * 86400
 ELEVATION_TTL_S = 365 * 86400
+#: Dos resultados con el mismo nombre y coordenadas redondeadas a este número de
+#: decimales (~110 m) se consideran el mismo sitio.
+DEDUPE_DECIMALS = 3
+#: Distancia por debajo de la cual se anota «a N m del anterior».
+NEARBY_M = 300.0
+
+
+def haversine_m(a: dict, b: dict) -> float:
+    """Distancia en metros entre dos resultados con ``lat``/``lon``."""
+    radio = 6371008.8
+    lat1, lon1 = math.radians(a["lat"]), math.radians(a["lon"])
+    lat2, lon2 = math.radians(b["lat"]), math.radians(b["lon"])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 2 * radio * math.asin(math.sqrt(h))
+
+
+def dedupe(results: list[dict], decimals: int = DEDUPE_DECIMALS) -> list[dict]:
+    """Quita resultados idénticos y anota la distancia a los casi iguales.
+
+    Nominatim devuelve a menudo varias entradas con el mismo nombre y
+    coordenadas casi idénticas; sin esto la lista es indistinguible.  La
+    segunda entrada conserva su distancia al anterior en ``distance_m`` para
+    que la interfaz pueda explicar la diferencia.
+    """
+    out: list[dict] = []
+    vistos: set[tuple[str, float, float]] = set()
+    for item in results:
+        clave = (
+            str(item.get("name", "")).casefold(),
+            round(float(item["lat"]), decimals),
+            round(float(item["lon"]), decimals),
+        )
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        item = dict(item)
+        item["distance_m"] = None
+        if out:
+            distancia = haversine_m(out[-1], item)
+            if distancia < NEARBY_M:
+                item["distance_m"] = distancia
+        out.append(item)
+    return out
 
 
 class Geocoder:
@@ -112,23 +157,29 @@ class Geocoder:
         key = query.lower()
         entry = self._cache.get(key)
         if entry and time.time() - entry.get("ts", 0) < CACHE_TTL_S:
-            return entry.get("results", [])[:limit]
+            # La caché puede venir de una versión anterior sin deduplicar.
+            return dedupe(entry.get("results", []))[:limit]
 
         results: list[dict] = []
+        source = "Nominatim"
         try:
             results = self._nominatim(query, limit)
         except Exception:
             results = []
         if not results:
+            source = "Photon"
             try:
                 results = self._photon(query, limit)
             except Exception:
                 results = []
 
+        results = dedupe(results)[:limit]
+        for item in results:
+            item.setdefault("source", source)
         if results:
             self._cache[key] = {"ts": time.time(), "results": results}
             self._save_cache()
-        return results[:limit]
+        return results
 
     # ------------------------------------------------------------------
     def _nominatim(self, query: str, limit: int) -> list[dict]:

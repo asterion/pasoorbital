@@ -50,16 +50,16 @@ telemetría ni servidor propio.
 Descarga el paquete desde la última release:
 
 - [Última release](https://github.com/asterion/pasoorbital/releases/latest)
-- [`.deb` para Debian/Ubuntu](https://github.com/asterion/pasoorbital/releases/download/v1.9.2/pasoorbital_1.9.2-1_all.deb)
+- [`.deb` para Debian/Ubuntu](https://github.com/asterion/pasoorbital/releases/download/v1.10.0/pasoorbital_1.10.0-1_all.deb)
 - [`.rpm` para Fedora](https://github.com/asterion/pasoorbital/releases/latest)
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./pasoorbital_1.9.2-1_all.deb
+sudo apt install ./pasoorbital_1.10.0-1_all.deb
 pasoorbital-gui
 
 # Fedora
-sudo rpm -ivh pasoorbital-1.9.2-1.noarch.rpm
+sudo rpm -ivh pasoorbital-1.10.0-1.noarch.rpm
 pasoorbital-gui
 ```
 
@@ -75,8 +75,8 @@ archivo está dentro de una carpeta privada y el usuario `_apt` no puede leerlo.
 No es un error. Para evitarlo:
 
 ```bash
-cp pasoorbital_1.9.2-1_all.deb /tmp/
-sudo apt install /tmp/pasoorbital_1.9.2-1_all.deb
+cp pasoorbital_1.10.0-1_all.deb /tmp/
+sudo apt install /tmp/pasoorbital_1.10.0-1_all.deb
 ```
 </details>
 
