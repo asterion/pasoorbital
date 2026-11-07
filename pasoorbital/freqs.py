@@ -55,6 +55,7 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_620_000,
             "mode": "APT",
+            "polarization": "RHCP",
             "label": "APT (imagen analógica)",
             "note": "AM, 2 líneas/s. Decodifica con noaa-apt o wximg.",
         }
@@ -63,6 +64,7 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_912_500,
             "mode": "APT",
+            "polarization": "RHCP",
             "label": "APT (imagen analógica)",
             "note": "AM, 2 líneas/s. Decodifica con noaa-apt o wximg.",
         }
@@ -71,6 +73,7 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_100_000,
             "mode": "APT",
+            "polarization": "RHCP",
             "label": "APT (imagen analógica)",
             "note": "AM, 2 líneas/s. Decodifica con noaa-apt o wximg.",
         }
@@ -80,6 +83,7 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_100_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (imagen digital)",
             "note": "Meteor-M N2; puede estar inactivo. Decodifica con SatDump.",
         }
@@ -88,6 +92,7 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_100_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (imagen digital)",
             "note": "Meteor-M2 2; puede estar inactivo. Decodifica con SatDump.",
         }
@@ -96,12 +101,14 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_900_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (imagen digital)",
             "note": "Meteor-M N2-3. Decodifica con SatDump; si no hay señal, prueba 137.1 MHz.",
         },
         {
             "freq_hz": 137_100_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (frecuencia alternativa)",
             "note": "Meteor-M N2-3: algunas emisiones usan 137.1 MHz.",
         },
@@ -110,12 +117,14 @@ CHANNELS: dict[int, list[dict]] = {
         {
             "freq_hz": 137_900_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (imagen digital)",
             "note": "Meteor-M N2-4. Decodifica con SatDump; si no hay señal, prueba 137.1 MHz.",
         },
         {
             "freq_hz": 137_100_000,
             "mode": "LRPT",
+            "polarization": "RHCP",
             "label": "LRPT (frecuencia alternativa)",
             "note": "Meteor-M N2-4: frecuencia alternativa reportada.",
         },

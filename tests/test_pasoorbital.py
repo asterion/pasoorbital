@@ -202,3 +202,46 @@ class TestFrequencies(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAntenna(unittest.TestCase):
+    """Orientación fija de la antena y arco de acimut."""
+
+    def _paso(self):
+        # Satélite sintético: cruza de az 90 a 270 con máximo de 45° en el centro.
+        ts = list(range(0, 600, 10))
+        az = [90.0 + 180.0 * (t / 590.0) for t in ts]
+        el = [5.0 + 45.0 * (1.0 - abs(t - 295) / 295.0) for t in ts]
+        return ts, az, el
+
+    def test_mejor_fija(self):
+        ts, az, el = self._paso()
+        mejor = passes.best_fixed_pointing(ts, az, el, beam_deg=60)
+        self.assertIsNotNone(mejor)
+        self.assertTrue(0 <= mejor["az"] < 360)
+        self.assertTrue(0 <= mejor["el"] <= 90)
+        self.assertGreater(mejor["coverage"], 0.2)
+        self.assertLessEqual(mejor["coverage"], 1.0)
+        self.assertTrue(mejor["intervals"])
+        self.assertGreater(mejor["seconds"], 0)
+
+    def test_haz_mas_ancho_cubre_mas(self):
+        ts, az, el = self._paso()
+        estrecho = passes.best_fixed_pointing(ts, az, el, beam_deg=30)
+        ancho = passes.best_fixed_pointing(ts, az, el, beam_deg=90)
+        self.assertGreater(ancho["coverage"], estrecho["coverage"])
+
+    def test_sin_muestras_visibles(self):
+        ts = [0, 10, 20]
+        az = [0.0, 0.0, 0.0]
+        el = [1.0, 2.0, 3.0]
+        self.assertIsNone(passes.best_fixed_pointing(ts, az, el, min_el=5.0))
+
+    def test_arco_con_salto_de_360(self):
+        # 350 -> 10 son 20°, no 340.
+        self.assertAlmostEqual(passes.az_arc([350.0, 355.0, 0.0, 10.0]), 20.0, places=6)
+
+    def test_angulo(self):
+        # Misma dirección y direcciones opuestas.
+        self.assertAlmostEqual(passes._angulo_entre(90, 45, 90, 45), 0.0, places=6)
+        self.assertAlmostEqual(passes._angulo_entre(0, 0, 180, 0), 180.0, places=6)

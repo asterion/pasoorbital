@@ -187,6 +187,19 @@ def geo_icon(osm_type: str | None) -> str:
     return "mark-location-symbolic"
 
 
+#: Polarizaciones de recepción y cómo se le explican al usuario.
+POLARIZATIONS = {
+    "RHCP": "circular a la derecha (RHCP)",
+    "LHCP": "circular a la izquierda (LHCP)",
+    "linear": "lineal (vertical u horizontal)",
+}
+
+
+def polarization_label(code: str | None) -> str:
+    """Texto divulgativo de la polarización de un canal."""
+    return POLARIZATIONS.get((code or "").upper(), POLARIZATIONS.get(code or "", ""))
+
+
 def fmt_coords(lat: float, lon: float) -> str:
     """Coordenadas con coma decimal y cuatro decimales, separadas por «·»."""
     return f"{lat:.4f} · {lon:.4f}".replace(".", ",")

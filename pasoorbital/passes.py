@@ -371,3 +371,86 @@ def track(sat: Satrec, obs: Observer, t0: float, t1: float, n: int = 160):
     ts = np.linspace(float(t0), float(t1), int(n))
     az, el, rng, rate = look_series(sat, obs, ts)
     return ts, az, el, rng, rate
+
+
+def _angulo_entre(az1: float, el1: float, az2: float, el2: float) -> float:
+    """Ángulo en grados entre dos direcciones del cielo (azimut, elevación)."""
+    daz = math.radians(((az1 - az2 + 180.0) % 360.0) - 180.0)
+    e1, e2 = math.radians(el1), math.radians(el2)
+    cosang = math.sin(e1) * math.sin(e2) + math.cos(e1) * math.cos(e2) * math.cos(daz)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cosang))))
+
+
+def az_arc(az) -> float:
+    """Recorrido total de acimut a lo largo de la serie, en grados."""
+    total = 0.0
+    for i in range(1, len(az)):
+        total += abs(((float(az[i]) - float(az[i - 1]) + 180.0) % 360.0) - 180.0)
+    return total
+
+
+def best_fixed_pointing(
+    ts,
+    az,
+    el,
+    beam_deg: float = 60.0,
+    min_el: float = 5.0,
+    step: float = 5.0,
+) -> dict | None:
+    """Orientación fija que más tiempo mantiene el satélite dentro del haz.
+
+    Recorre el cielo en pasos de ``step`` grados y devuelve la dirección cuyo
+    cono de semiángulo ``beam_deg / 2`` contiene más muestras visibles del paso,
+    junto con los intervalos de tiempo cubiertos.  Es la recomendación para una
+    antena que no se mueve: apuntar al punto más alto no suele ser lo mejor,
+    porque el satélite recorre mucho acimut.
+    """
+    ts = list(ts)
+    az = [float(v) for v in az]
+    el = [float(v) for v in el]
+    if not ts or len(ts) != len(az) or len(ts) != len(el):
+        return None
+
+    visibles = [i for i, e in enumerate(el) if e >= min_el]
+    if not visibles:
+        return None
+
+    semi = beam_deg / 2.0
+    mejor = None
+    for az_ant in range(0, 360, int(step)):
+        for el_ant in range(0, 91, int(step)):
+            dentro = 0
+            for i in visibles:
+                if _angulo_entre(az_ant, el_ant, az[i], el[i]) <= semi:
+                    dentro += 1
+            cobertura = dentro / len(visibles)
+            if mejor is None or cobertura > mejor["coverage"]:
+                mejor = {
+                    "az": float(az_ant),
+                    "el": float(el_ant),
+                    "coverage": cobertura,
+                    "samples": dentro,
+                    "total": len(visibles),
+                    "beam_deg": beam_deg,
+                }
+
+    # Intervalos de tiempo dentro del haz, para dibujar la barra de cobertura.
+    dentro = [
+        _angulo_entre(mejor["az"], mejor["el"], az[i], el[i]) <= semi
+        for i in range(len(ts))
+    ]
+    intervalos: list[tuple[float, float]] = []
+    inicio = None
+    for i, ok in enumerate(dentro):
+        visible = el[i] >= min_el
+        if ok and visible and inicio is None:
+            inicio = ts[i]
+        elif not (ok and visible) and inicio is not None:
+            intervalos.append((inicio, ts[i - 1]))
+            inicio = None
+    if inicio is not None:
+        intervalos.append((inicio, ts[-1]))
+
+    mejor["intervals"] = intervalos
+    mejor["seconds"] = sum(fin - ini for ini, fin in intervalos)
+    return mejor

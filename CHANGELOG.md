@@ -3,6 +3,27 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.11.0] - 2026-11-07
+
+### Añadido
+
+- **Pestaña Antena**: orientación fija óptima para cada paso (la que más tiempo
+  mantiene el satélite dentro del haz, que no es el punto más alto), cobertura
+  estimada en minutos y porcentaje, brújula con el cono del haz, guía temporal
+  con los tres instantes y aviso cuando el paso barre demasiado acimut.
+- **Montura y ancho de haz** configurables (fija o a mano; 30°, 60° o 90°) y
+  recordados en `config.json`.
+- **Polarización** en los canales meteorológicos (RHCP) y aviso de la antena
+  recomendada en la pestaña Antena.
+
+### Cambiado
+
+- El detalle pasa a cinco pestañas; el manual y AppStream lo reflejan.
+
+### Empaquetado
+
+- Nuevos paquetes `.deb` y `.rpm` con la versión 1.11.0.
+
 ## [1.10.0] - 2026-11-01
 
 ### Añadido

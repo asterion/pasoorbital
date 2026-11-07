@@ -24,7 +24,9 @@ from .data import (  # noqa: E402
     filter_passes,
     sort_passes,
 )
+from pasoorbital import passes  # noqa: E402
 from pasoorbital.passes import C_KM_S, look_at  # noqa: E402
+from .antenna import AntennaPlot, CoverageBar, marcas_de_paso  # noqa: E402
 from .location import GeoClue, GeoClueError  # noqa: E402
 from .skyplot import (  # noqa: E402
     ElevationPlot,
@@ -97,6 +99,12 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._sort_mode = str(self.config.get("sort", "time"))
         self._high_only = bool(self.config.get("high_only", False))
         self._checklist_open = bool(self.config.get("checklist_open", False))
+        self._antenna_mount = str(self.config.get("antenna_mount", "fixed"))
+        self._antenna_beam = int(self.config.get("antenna_beam", 60))
+        self._ant_item = None
+        self._ant_plot: AntennaPlot | None = None
+        self._ant_bar: CoverageBar | None = None
+        self._ant_labels: dict[str, Gtk.Label] = {}
         self._geo_busy = False
         self._geo_source = ""
         self._row_items: dict[Gtk.ListBoxRow, PassItem] = {}
@@ -657,6 +665,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             "sort": self._sort_mode,
             "high_only": self._high_only,
             "checklist_open": self._checklist_open,
+            "antenna_mount": self._antenna_mount,
+            "antenna_beam": self._antenna_beam,
         }
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1306,6 +1316,8 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
              self._detail_sky_page(item)),
             ("listen", "Escucha", "media-playback-start-symbolic",
              self._detail_listen_page(item)),
+            ("antenna", "Antena", "network-wireless-symbolic",
+             self._detail_antenna_page(item)),
         )
         for nombre, titulo, icono, contenido in paginas:
             page = stack.add_titled(self._pagina_con_scroll(contenido), nombre, titulo)
@@ -1690,6 +1702,9 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
         self._listen_freq_value = None
         self._check_buttons = []
         self._listen_channel = 0
+        self._ant_item = None
+        self._ant_plot = None
+        self._ant_bar = None
 
     def _live_tick(self) -> bool:
         item = self._live_item
@@ -2012,6 +2027,274 @@ class PasoOrbitalWindow(Adw.ApplicationWindow):
             self._live_label.set_text("El paso ya terminó.")
             self._live_progress.set_fraction(1.0)
         return box
+
+
+    # ------------------------------------------------------------- antena
+    def _detail_antenna_page(self, item: PassItem) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_top(18)
+        box.set_margin_bottom(18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        box.set_vexpand(True)
+
+        self._ant_item = item
+        self._ant_labels = {}
+
+        # fila de controles
+        fila = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        etiqueta = Gtk.Label(label="Recomendación para este paso")
+        etiqueta.set_xalign(0)
+        etiqueta.set_hexpand(True)
+        etiqueta.add_css_class("caption")
+        etiqueta.add_css_class("dim-label")
+        fila.append(etiqueta)
+        fila.append(self._segmented(
+            (("fixed", "Fija"), ("manual", "A mano")),
+            self._antenna_mount, self._on_antenna_mount,
+        ))
+        fila.append(self._segmented(
+            (("30", "30°"), ("60", "60°"), ("90", "90°")),
+            str(self._antenna_beam), self._on_antenna_beam,
+        ))
+        box.append(fila)
+
+        # tarjeta principal: brújula + cifras
+        tarjeta = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        tarjeta.add_css_class("card")
+        self._ant_plot = AntennaPlot([], [], {}, None, self._antenna_beam)
+        self._ant_plot.set_size_request(340, 280)
+        self._ant_plot.set_hexpand(False)
+        self._ant_plot.set_halign(Gtk.Align.FILL)
+        tarjeta.append(self._ant_plot)
+
+        datos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        datos.set_hexpand(True)
+        datos.set_valign(Gtk.Align.CENTER)
+
+        self._ant_labels["titulo"] = self._caption("Apunta la antena a")
+        datos.append(self._ant_labels["titulo"])
+
+        valor_az = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self._ant_labels["az"] = self._grande("—", "antenna-value")
+        self._ant_labels["az_hint"] = self._caption("")
+        valor_az.append(self._ant_labels["az"])
+        valor_az.append(self._ant_labels["az_hint"])
+        datos.append(valor_az)
+
+        valor_el = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._ant_labels["el"] = self._grande("—", "antenna-value-small")
+        self._ant_labels["el_hint"] = self._caption("")
+        valor_el.append(self._ant_labels["el"])
+        valor_el.append(self._ant_labels["el_hint"])
+        datos.append(valor_el)
+
+        datos.append(Gtk.Separator())
+
+        cobertura = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._ant_labels["cov_titulo"] = self._caption("Cubre")
+        self._ant_labels["cov_titulo"].set_hexpand(True)
+        self._ant_labels["cov_pct"] = self._grande("", "antenna-pct")
+        cobertura.append(self._ant_labels["cov_titulo"])
+        cobertura.append(self._ant_labels["cov_pct"])
+        datos.append(cobertura)
+
+        self._ant_labels["cov"] = Gtk.Label(label="")
+        self._ant_labels["cov"].set_xalign(0)
+        self._ant_labels["cov"].add_css_class("antenna-cov")
+        datos.append(self._ant_labels["cov"])
+
+        self._ant_bar = CoverageBar([], item.aos, item.los, item.tca)
+        datos.append(self._ant_bar)
+
+        self._ant_labels["nota"] = Gtk.Label(label="")
+        self._ant_labels["nota"].set_xalign(0)
+        self._ant_labels["nota"].set_wrap(True)
+        self._ant_labels["nota"].add_css_class("caption")
+        self._ant_labels["nota"].add_css_class("dim-label")
+        datos.append(self._ant_labels["nota"])
+
+        tarjeta.append(datos)
+        box.append(tarjeta)
+
+        # tarjeta de guía temporal
+        guia = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        guia.add_css_class("card")
+        cabecera = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._ant_labels["guia_titulo"] = self._caption("Si puedes mover la antena")
+        self._ant_labels["guia_titulo"].set_hexpand(True)
+        cabecera.append(self._ant_labels["guia_titulo"])
+        self._ant_labels["aviso"] = Gtk.Label(label="")
+        self._ant_labels["aviso"].add_css_class("chip")
+        self._ant_labels["aviso"].add_css_class("chip-warning")
+        self._ant_labels["aviso"].set_visible(False)
+        cabecera.append(self._ant_labels["aviso"])
+        guia.append(cabecera)
+
+        columnas = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        columnas.set_homogeneous(True)
+        for clave, titulo, hora, detalle in (
+            ("aos", "Empieza", fmt.fmt_time(item.aos),
+             f"{round(item.az_aos)}° · aparece"),
+            ("tca", "Punto más alto", fmt.fmt_time(item.tca),
+             f"{round(item.az_tca)}° · {fmt.fmt_deg(item.max_el)} sobre el horizonte"),
+            ("los", "Termina", fmt.fmt_time(item.los),
+             f"{round(item.az_los)}° · se va"),
+        ):
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            col.append(self._caption(titulo))
+            valor = Gtk.Label(label=hora)
+            valor.set_xalign(0)
+            valor.add_css_class("antenna-time")
+            col.append(valor)
+            det = Gtk.Label(label=detalle)
+            det.set_xalign(0)
+            det.set_wrap(True)
+            det.add_css_class("caption")
+            det.add_css_class("dim-label")
+            col.append(det)
+            columnas.append(col)
+        guia.append(columnas)
+        box.append(guia)
+
+        self._ant_labels["pie"] = Gtk.Label(label="")
+        self._ant_labels["pie"].set_xalign(0)
+        self._ant_labels["pie"].set_wrap(True)
+        self._ant_labels["pie"].add_css_class("caption")
+        self._ant_labels["pie"].add_css_class("dim-label")
+        box.append(self._ant_labels["pie"])
+
+        self._refresh_antenna()
+        return box
+
+    def _caption(self, texto: str) -> Gtk.Label:
+        etiqueta = Gtk.Label(label=texto)
+        etiqueta.set_xalign(0)
+        etiqueta.add_css_class("caption")
+        etiqueta.add_css_class("dim-label")
+        return etiqueta
+
+    def _grande(self, texto: str, clase: str) -> Gtk.Label:
+        etiqueta = Gtk.Label(label=texto)
+        etiqueta.set_xalign(0)
+        etiqueta.add_css_class(clase)
+        return etiqueta
+
+    def _segmented(self, opciones, activo: str, al_cambiar) -> Gtk.Widget:
+        caja = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        caja.add_css_class("linked")
+        caja.set_valign(Gtk.Align.CENTER)
+        grupo = None
+        for valor, etiqueta in opciones:
+            boton = Gtk.ToggleButton(label=etiqueta)
+            boton.set_active(valor == activo)
+            if grupo is None:
+                grupo = boton
+            else:
+                boton.set_group(grupo)
+            boton.connect("toggled", self._on_antenna_toggle, valor, al_cambiar)
+            caja.append(boton)
+        return caja
+
+    def _on_antenna_toggle(self, boton: Gtk.ToggleButton, valor: str, al_cambiar) -> None:
+        if boton.get_active():
+            al_cambiar(valor)
+
+    def _on_antenna_mount(self, valor: str) -> None:
+        self._antenna_mount = valor
+        self._save_config()
+        self._refresh_antenna()
+
+    def _on_antenna_beam(self, valor: str) -> None:
+        try:
+            self._antenna_beam = int(valor)
+        except ValueError:
+            return
+        self._save_config()
+        self._refresh_antenna()
+
+    def _refresh_antenna(self) -> None:
+        item = self._ant_item
+        if item is None or self._ant_plot is None or self._ant_bar is None:
+            return
+        puntos = self.data.track(item, n=240)
+        ts = [p[0] for p in puntos]
+        az = [p[1] for p in puntos]
+        el = [p[2] for p in puntos]
+
+        fija = passes.best_fixed_pointing(ts, az, el, self._antenna_beam)
+        arco = passes.az_arc(az)
+        manual = self._antenna_mount == "manual"
+
+        if manual:
+            apuntado = (item.az_tca, item.max_el)
+            self._ant_labels["titulo"].set_text("En el punto más alto")
+            self._ant_labels["az"].set_text(f"{round(item.az_tca)}°")
+            self._ant_labels["az_hint"].set_text(
+                f"acimut · {fmt.compass_word(item.az_tca)}"
+            )
+            self._ant_labels["el"].set_text(fmt.fmt_deg(item.max_el))
+            self._ant_labels["el_hint"].set_text("sobre el horizonte")
+            self._ant_labels["cov_titulo"].set_text("Recorrido")
+            self._ant_labels["cov"].set_text(
+                f"Gira de {round(item.az_aos)}° a {round(item.az_los)}° durante "
+                f"{fmt.fmt_dur(item.duration_s)}"
+            )
+            self._ant_labels["cov_pct"].set_text(f"{round(arco)}°")
+            self._ant_labels["nota"].set_text(
+                "Sigue la trayectoria con la antena; el cono marca el punto más alto."
+            )
+            self._ant_labels["guia_titulo"].set_text("Guía para moverla a mano")
+            self._ant_bar.set_state([], item.aos, item.los, item.tca)
+        else:
+            apuntado = (fija["az"], fija["el"]) if fija else (item.az_tca, item.max_el)
+            self._ant_labels["titulo"].set_text("Apunta la antena a")
+            self._ant_labels["az"].set_text(f"{round(apuntado[0])}°")
+            self._ant_labels["az_hint"].set_text(
+                f"acimut · {fmt.compass_word(apuntado[0])}"
+            )
+            self._ant_labels["el"].set_text(fmt.fmt_deg(apuntado[1]))
+            self._ant_labels["el_hint"].set_text("sobre el horizonte")
+            self._ant_labels["cov_titulo"].set_text("Cubre")
+            if fija:
+                self._ant_labels["cov"].set_text(
+                    f"{fmt.fmt_dur(fija['seconds'])} de {fmt.fmt_dur(item.duration_s)} "
+                    f"dentro del haz"
+                )
+                self._ant_labels["cov_pct"].set_text(f"{round(fija['coverage'] * 100)} %")
+                self._ant_labels["nota"].set_text(
+                    f"Estimado para antena fija con un haz de {self._antenna_beam}°."
+                )
+                self._ant_bar.set_state(fija["intervals"], item.aos, item.los, item.tca)
+            else:
+                self._ant_labels["cov"].set_text("Sin datos de cobertura")
+                self._ant_labels["cov_pct"].set_text("—")
+                self._ant_labels["nota"].set_text("")
+                self._ant_bar.set_state([], item.aos, item.los, item.tca)
+            self._ant_labels["guia_titulo"].set_text("Si puedes mover la antena")
+            self._ant_bar.set_state(
+                fija["intervals"] if fija else [], item.aos, item.los, item.tca
+            )
+
+        # aviso de arco amplio, solo para antena fija
+        aviso = self._ant_labels["aviso"]
+        if not manual and arco > 120:
+            aviso.set_text(f"Arco de {round(arco)}°: con antena fija pierdes los extremos")
+            aviso.set_visible(True)
+        else:
+            aviso.set_visible(False)
+
+        self._ant_plot.set_state(az, el, marcas_de_paso(item), apuntado, self._antenna_beam)
+
+        canal = item.sat.channels[0] if item.sat.channels else {}
+        polarizacion = fmt.polarization_label(canal.get("polarization"))
+        pie = (
+            f"Cálculo con TLE de {str(round(item.sat.tle_age_days, 1)).replace('.', ',')} días. "
+            "No modela obstáculos ni el diagrama real de tu antena."
+        )
+        if polarizacion:
+            pie += f" Antena {polarizacion} para este canal."
+        self._ant_labels["pie"].set_text(pie)
 
     def _heading(self, text: str) -> Gtk.Label:
         label = Gtk.Label(label=text)

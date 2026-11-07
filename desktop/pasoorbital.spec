@@ -1,5 +1,5 @@
 Name:           pasoorbital
-Version:        1.10.0
+Version:        1.11.0
 Release:        1
 Summary:        Predicción de pasos de satélites para escucha radio
 License:        MIT
@@ -107,6 +107,11 @@ fi
 %doc README.md AUTHORS.md
 
 %changelog
+* Sat Nov 07 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.11.0-1
+- Pestaña Antena con orientación fija, cobertura y guía temporal.
+- Polarización en los canales meteorológicos.
+- Paquete 1.11.0.
+
 * Sun Nov 01 2026 Marcos Matamala Fernandez <asterion@users.noreply.github.com> - 1.10.0-1
 - Rediseño de la lista, el detalle y el primer uso.
 - Paquete 1.10.0.

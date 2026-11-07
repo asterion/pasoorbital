@@ -5,7 +5,7 @@ umask 022
 cd "$(dirname "$0")"
 
 PKG=pasoorbital
-VERSION=1.10.0
+VERSION=1.11.0
 ARCH=all
 STAGE="$PWD/build/${PKG}_${VERSION}-1_${ARCH}"
 DIST="$PWD/dist"
@@ -54,10 +54,10 @@ install -m 644 ../LICENSE "$STAGE/usr/share/doc/pasoorbital/copyright"
 install -m 644 ../AUTHORS.md "$STAGE/usr/share/doc/pasoorbital/AUTHORS.md"
 install -m 644 README.md "$STAGE/usr/share/doc/pasoorbital/README.desktop.md"
 gzip -9n -c > "$STAGE/usr/share/doc/pasoorbital/changelog.Debian.gz" <<'CHANGELOG'
-pasoorbital (1.10.0-1) unstable; urgency=medium
+pasoorbital (1.11.0-1) unstable; urgency=medium
 
-  * Rediseño de la lista, el detalle y el primer uso: Escucha compacta con
-    progreso, filas con columnas fijas, gráficos según el tema y GeoClue.
+  * Pestaña Antena: orientación fija óptima, cobertura y guía temporal.
+  * Polarización de los canales meteorológicos y aviso en la interfaz.
 
  -- Marcos Matamala Fernandez <asterion@users.noreply.github.com>  Sun, 01 Nov 2026 00:00:00 +0000
 CHANGELOG
